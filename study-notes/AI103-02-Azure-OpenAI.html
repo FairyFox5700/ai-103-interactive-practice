@@ -30,6 +30,11 @@
   li{margin-bottom:4px;}
   .keyword{background:#fffbdd;padding:1px 5px;border-radius:4px;font-weight:600;}
   code{background:#eef1f4;padding:2px 5px;border-radius:4px;font-size:13px;}
+  pre.codeblock{background:#1e1e1e;color:#d4d4d4;padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:12.5px;line-height:1.5;margin:10px 0;}
+  pre.codeblock code{background:none;color:inherit;padding:0;font-size:inherit;}
+  .lang-tag{display:inline-block;background:var(--accent);color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:2px 8px;border-radius:4px 4px 0 0;margin-bottom:-2px;}
+  .scenario{background:#fdf6e3;border:1px solid #e8d9a0;border-radius:8px;padding:14px 18px;margin:14px 0;font-size:13.5px;}
+  .scenario b{color:#8a6d00;}
   .must-know{background:#eafaf1;border:1px solid #b7e4c7;border-radius:8px;padding:10px 16px;margin-top:14px;font-size:13.5px;}
   .must-know b{color:#1e7e34;}
   footer{text-align:center;color:#888;font-size:12px;margin-top:50px;}
@@ -58,6 +63,7 @@
   <a href="#finetune">8. Fine-tuning</a>
   <a href="#integrate">9. SDKs, auth &amp; connecting apps</a>
   <a href="#quotas">10. Quotas &amp; rate limits</a>
+  <a href="#handson">11. Hands-on patterns</a>
 </div>
 
 <section id="platform">
@@ -72,6 +78,38 @@
   </ul>
   <div class="tip">For the exam, treat "Azure OpenAI," "Azure OpenAI in Microsoft Foundry," and "Foundry Models (OpenAI)" as the same underlying service — just evolving branding. API shapes (Chat Completions, Responses, Assistants) are unchanged.</div>
   <div class="must-know"><b>Must know:</b> A Foundry/Azure OpenAI <i>resource</i> is the billing/endpoint boundary; a <i>deployment</i> is a named instance of a specific model version inside that resource that your app actually calls (you always call a <b>deployment name</b>, not a raw model name, in Chat Completions).</div>
+
+  <h3>Minimal working example — basic chat completion</h3>
+  <p>Every Foundry/Azure OpenAI resource exposes an OpenAI-compatible endpoint at <code>https://YOUR-RESOURCE-NAME.openai.azure.com/openai/v1/</code> that works directly with the standard <code>openai</code> SDK (no Azure-specific client required) by overriding <code>base_url</code>.</p>
+  <span class="lang-tag">Python</span>
+  <pre class="codeblock"><code>import os
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://YOUR-RESOURCE-NAME.openai.azure.com/openai/v1/",
+    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+)
+
+response = client.chat.completions.create(
+    model="gpt-4o-mini",  # this is the DEPLOYMENT NAME, not the raw model name
+    messages=[
+        {"role": "system", "content": "You are a concise technical assistant."},
+        {"role": "user", "content": "Summarize this contract clause in one sentence."},
+    ],
+    temperature=0.2,
+)
+print(response.choices[0].message.content)
+</code></pre>
+  <span class="lang-tag">curl / REST</span>
+  <pre class="codeblock"><code>curl "https://YOUR-RESOURCE-NAME.openai.azure.com/openai/v1/chat/completions" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $AZURE_OPENAI_API_KEY" \
+  -d '{
+        "model": "gpt-4o-mini",
+        "messages": [{"role": "user", "content": "Say hello in French"}],
+        "temperature": 0.2
+      }'
+</code></pre>
 </section>
 
 <section id="models">
@@ -101,6 +139,12 @@
   </table>
   <div class="tip"><b>Instant access (preview):</b> for some models you can call them by name directly with no deployment step at all — useful for quick experimentation, but production apps still typically create a deployment for quota control and stability.</div>
   <div class="must-know"><b>Must know:</b> <b>Standard/Global Standard = pay-as-you-go, shared capacity, variable latency; Provisioned Throughput (PTU) = reserved/dedicated capacity for predictable latency and guaranteed throughput at a higher fixed cost.</b> The exam loves this standard-vs-provisioned tradeoff question.</div>
+
+  <div class="scenario">
+    <b>Scenario:</b> A contact-center app calls GPT-4o for live call summarization. During a product launch, call volume triples overnight and users start reporting slow, inconsistent response times that must be fixed with a predictable, guaranteed SLA — cost is secondary to reliability.<br>
+    <b>Recommended answer:</b> Migrate the deployment from <b>Global Standard</b> to <b>Provisioned Throughput Units (PTU)</b>.<br>
+    <b>Rationale:</b> Global Standard shares capacity across tenants, so latency/throughput varies under load spikes. PTU reserves dedicated capacity for the deployment, giving consistent, guaranteed latency and throughput regardless of other tenants' traffic — the correct tradeoff when predictability matters more than per-token cost.
+  </div>
 </section>
 
 <section id="rag">
@@ -133,6 +177,44 @@
     <li>Many production systems combine both: RAG for facts + fine-tuning for tone/format/tool-use patterns.</li>
   </ul>
   <div class="must-know"><b>Must know:</b> Azure OpenAI <b>On Your Data retired Oct 14, 2026</b>; the supported path is a Foundry IQ <b>Knowledge Base</b> built on a <b>Knowledge Source</b> (commonly wrapping your existing Azure AI Search index), called via <code>retrieve</code>, optionally via an Agent Service agent — this is the concept the exam now expects for "implement RAG in an application."</div>
+
+  <h3>Worked example — retrieve-then-generate RAG call</h3>
+  <span class="lang-tag">Python</span>
+  <pre class="codeblock"><code>from azure.search.documents import SearchClient
+from azure.core.credentials import AzureKeyCredential
+from openai import AzureOpenAI
+
+search_client = SearchClient(
+    endpoint="https://my-search.search.windows.net",
+    index_name="product-docs-index",
+    credential=AzureKeyCredential("&lt;search-key&gt;"),
+)
+aoai = AzureOpenAI(
+    azure_endpoint="https://my-resource.openai.azure.com/",
+    api_key="&lt;key&gt;", api_version="2026-xx-xx",
+)
+
+query = "What is the warranty period for model X200?"
+
+# 1. Retrieve top-k relevant chunks (hybrid vector + keyword search)
+results = search_client.search(search_text=query, top=3,
+                                query_type="semantic", semantic_configuration_name="default")
+context = "\n\n".join(f"[Doc {i+1}] {r['content']}" for i, r in enumerate(results))
+
+# 2. Augment the prompt with grounding context and ask for cited answers
+messages = [
+    {"role": "system", "content": "Answer ONLY using the provided context. Cite sources as [Doc N]."},
+    {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"},
+]
+response = aoai.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0)
+print(response.choices[0].message.content)
+</code></pre>
+
+  <div class="scenario">
+    <b>Scenario:</b> A legal team wants the assistant to answer questions using the company's constantly-updated internal policy documents (revised weekly), and every answer must cite the exact source paragraph.<br>
+    <b>Recommended answer:</b> Implement <b>RAG via a Foundry IQ Knowledge Base</b> over an Azure AI Search index — not fine-tuning.<br>
+    <b>Rationale:</b> Fine-tuning bakes facts into model weights at training time, making weekly updates impractical and it doesn't reliably produce verifiable citations. RAG retrieves the latest indexed documents at query time, so re-indexing (not retraining) propagates new policy text immediately, and the model can cite the exact retrieved chunk.
+  </div>
 </section>
 
 <section id="prompt">
@@ -165,6 +247,23 @@
     <tr><td><code>n</code></td><td>Number of completions to generate per prompt</td><td>Useful for sampling/voting strategies; multiplies cost.</td></tr>
   </table>
   <div class="must-know"><b>Must know:</b> Adjust <b>either</b> <code>temperature</code> <b>or</b> <code>top_p</code> for a given call — never both at once — and use low temperature/top_p for deterministic, factual, or extraction-style tasks (this exact wording shows up as an exam distractor).</div>
+
+  <h3>Worked example — tuning parameters for deterministic extraction</h3>
+  <span class="lang-tag">Python</span>
+  <pre class="codeblock"><code>response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[
+        {"role": "system", "content": "Extract the invoice number, total, and due date as plain text."},
+        {"role": "user", "content": invoice_text},
+    ],
+    temperature=0,        # deterministic — do NOT also set top_p
+    max_tokens=100,
+    frequency_penalty=0,
+    presence_penalty=0,
+    seed=42,              # best-effort reproducibility for regression tests
+)
+print(response.choices[0].message.content)
+</code></pre>
 </section>
 
 <section id="function">
@@ -186,6 +285,77 @@
     <li>In Python, commonly paired with <b>Pydantic</b> models passed via <code>client.beta.chat.completions.parse(..., response_format=MyModel)</code>, returning a <code>.parsed</code> object.</li>
     <li>Primary use cases: reliable <b>function-calling argument generation</b>, structured data extraction, and multi-step agentic workflows that need predictable shapes between steps.</li>
   </ul>
+
+  <h3>Worked example — function/tool calling loop</h3>
+  <span class="lang-tag">Python</span>
+  <pre class="codeblock"><code>import json
+from openai import OpenAI
+client = OpenAI(base_url="https://YOUR-RESOURCE-NAME.openai.azure.com/openai/v1/",
+                 api_key=api_key)
+
+tools = [{
+    "type": "function",
+    "function": {
+        "name": "get_current_time",
+        "description": "Get the current time in a given location",
+        "parameters": {
+            "type": "object",
+            "properties": {"location": {"type": "string", "description": "The city name"}},
+            "required": ["location"],
+        },
+    },
+}]
+
+messages = [{"role": "user", "content": "What's the current time in Tokyo?"}]
+
+# 1) Ask the model; it may decide to call a tool
+response = client.chat.completions.create(model="gpt-4o-mini", messages=messages,
+                                            tools=tools, tool_choice="auto")
+msg = response.choices[0].message
+messages.append(msg)
+
+# 2) Execute the tool call(s) your app owns, then feed results back
+if msg.tool_calls:
+    for call in msg.tool_calls:
+        args = json.loads(call.function.arguments)
+        result = get_current_time(args["location"])  # your real function
+        messages.append({"tool_call_id": call.id, "role": "tool",
+                          "name": call.function.name, "content": result})
+
+# 3) Call again so the model can produce the final natural-language answer
+final = client.chat.completions.create(model="gpt-4o-mini", messages=messages)
+print(final.choices[0].message.content)
+</code></pre>
+
+  <h3>Worked example — JSON mode vs. structured outputs</h3>
+  <span class="lang-tag">Python (JSON mode)</span>
+  <pre class="codeblock"><code>response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    response_format={"type": "json_object"},  # guarantees *valid JSON*, not a specific shape
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant designed to output JSON."},
+        {"role": "user", "content": "Who won the World Series in 2020?"},
+    ],
+)
+print(response.choices[0].message.content)
+</code></pre>
+  <span class="lang-tag">Python (Structured Outputs, strict schema)</span>
+  <pre class="codeblock"><code>from pydantic import BaseModel
+
+class InvoiceExtraction(BaseModel):
+    invoice_number: str
+    total_amount: float
+    due_date: str
+
+completion = client.beta.chat.completions.parse(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": invoice_text}],
+    response_format=InvoiceExtraction,  # strict JSON Schema conformance guaranteed
+)
+invoice = completion.choices[0].message.parsed
+print(invoice.invoice_number, invoice.total_amount, invoice.due_date)
+</code></pre>
+
   <div class="must-know"><b>Must know:</b> <b>Structured outputs guarantee schema conformance (strict JSON Schema match); JSON mode only guarantees valid JSON syntax.</b> Also remember the 3-step function-calling loop: declare tools → model emits <code>tool_calls</code> → app runs the function and feeds the result back as a <code>role: "tool"</code> message for a final answer.</div>
 </section>
 
@@ -231,6 +401,12 @@
   </ul>
   <div class="tip">Governance: Foundry lets you apply <b>Microsoft Entra identity, RBAC, content filters, and network isolation</b> centrally as part of the "Foundry control plane," so filtering policy can be managed at the platform level, not just per API call.</div>
   <div class="must-know"><b>Must know:</b> There are exactly <b>4 default harm categories (Hate &amp; Fairness, Sexual, Violence, Self-Harm)</b>, each with <b>4 severity levels (safe/low/medium/high)</b>, and content filtering <b>does not cover embeddings or audio/Whisper models</b> — a classic exam trap.</div>
+
+  <div class="scenario">
+    <b>Scenario:</b> A healthcare chatbot occasionally receives messages from distressed users mentioning self-harm. The compliance team wants the app to <i>never</i> hard-block these messages outright (so it can route to a crisis-support response) while still blocking genuinely violent or hateful content at default thresholds.<br>
+    <b>Recommended answer:</b> Configure a <b>custom content filter</b> that raises the <b>Self-Harm</b> category severity threshold (e.g., allow medium severity through) while leaving Hate &amp; Fairness/Violence/Sexual at default, and pair it with an application-level safe-response/escalation flow — not by disabling filtering entirely.<br>
+    <b>Rationale:</b> Azure AI Content Safety lets you tune the block threshold <b>per category</b> (within subscription-allowed limits); you cannot disable the "safe" tier, but you can raise the bar for one category so legitimate but sensitive content reaches your app's custom handling logic instead of being blocked outright.
+  </div>
 </section>
 
 <section id="finetune">
@@ -258,6 +434,59 @@
     <li>Once complete, <b>deploy the fine-tuned model</b> like any other model deployment (it gets its own deployment name) — commonly first evaluated using the <b>Developer</b> deployment type before a full production deployment type is chosen.</li>
   </ol>
   <div class="tip">Required Foundry RBAC: <b>Foundry User</b> role is enough to run training; you need <b>Foundry Owner</b> to also deploy the resulting fine-tuned model.</div>
+
+  <h3>Worked example — submitting a supervised fine-tuning job</h3>
+  <span class="lang-tag">Python (OpenAI SDK)</span>
+  <pre class="codeblock"><code>import os
+from openai import OpenAI
+
+client = OpenAI(
+    base_url=os.environ["AZURE_OPENAI_ENDPOINT"].rstrip("/") + "/openai/v1/",
+    api_key=os.environ["AZURE_OPENAI_API_KEY"],
+)
+
+# 1) Upload training & validation files (JSONL, one chat-message example per line)
+training_file = client.files.create(file=open("training.jsonl", "rb"), purpose="fine-tune")
+validation_file = client.files.create(file=open("validation.jsonl", "rb"), purpose="fine-tune")
+
+# 2) Create the SFT job
+job = client.fine_tuning.jobs.create(
+    training_file=training_file.id,
+    validation_file=validation_file.id,
+    model="gpt-4o-mini-2026-xx-xx",            # FINE_TUNING_MODEL
+    method={
+        "type": "supervised",
+        "supervised": {"hyperparameters": {"batch_size": "auto",
+                                            "learning_rate_multiplier": "auto",
+                                            "n_epochs": "auto"}},
+    },
+    suffix="contoso-support-v1",
+)
+print(job.id, job.status)
+</code></pre>
+  <span class="lang-tag">REST / curl</span>
+  <pre class="codeblock"><code>curl "$AZURE_OPENAI_ENDPOINT/openai/v1/fine_tuning/jobs" \
+  -H "Authorization: Bearer $AZURE_OPENAI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "model": "gpt-4o-mini-2026-xx-xx",
+        "training_file": "file-abc123",
+        "validation_file": "file-def456",
+        "method": {"type": "supervised",
+                    "supervised": {"hyperparameters": {"batch_size": "auto",
+                                                          "learning_rate_multiplier": "auto",
+                                                          "n_epochs": "auto"}}}
+      }'
+# Poll status:
+curl "$AZURE_OPENAI_ENDPOINT/openai/v1/fine_tuning/jobs/&lt;job_id&gt;" \
+  -H "Authorization: Bearer $AZURE_OPENAI_API_KEY"
+</code></pre>
+
+  <div class="scenario">
+    <b>Scenario:</b> A support-ticket triage app needs responses that always follow a strict company tone-of-voice and always reply in a fixed 3-sentence structure. The facts needed are already supplied in each prompt by the retrieval layer; only output <i>style and format</i> are inconsistent.<br>
+    <b>Recommended answer:</b> Use <b>supervised fine-tuning (SFT)</b> with example <code>training.jsonl</code>/<code>validation.jsonl</code> pairs demonstrating the desired tone/format — not RAG and not just prompt engineering alone.<br>
+    <b>Rationale:</b> The problem is consistent <i>behavior/format</i>, which is exactly what fine-tuning optimizes for; RAG only helps inject facts, which aren't the issue here. Few-shot prompting could help but doesn't scale as reliably as fine-tuning once you need it to hold across thousands of varied tickets.
+  </div>
   <div class="must-know"><b>Must know:</b> Fine-tuning data uses the <b>same chat message schema (system/user/assistant)</b> as normal Chat Completions calls, split into <code>training.jsonl</code>/<code>validation.jsonl</code>; fine-tuning changes <b>style/behavior</b>, while RAG supplies <b>facts</b> — don't conflate the two on the exam.</div>
 </section>
 
@@ -276,6 +505,27 @@
     <li><b>Foundry Toolbox:</b> built-in tools, memory, and retrieval components you can attach to an agent without writing custom integration code.</li>
   </ul>
   <div class="must-know"><b>Must know:</b> You authenticate with <b>either an API key or a Microsoft Entra ID bearer token</b>; Entra ID is the Microsoft-recommended production approach and requires a <b>custom subdomain</b> on the Foundry/Azure OpenAI resource — a frequently tested prerequisite.</div>
+
+  <h3>Worked example — Microsoft Entra ID authentication (production pattern)</h3>
+  <span class="lang-tag">Python</span>
+  <pre class="codeblock"><code>from openai import OpenAI
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+
+token_provider = get_bearer_token_provider(
+    DefaultAzureCredential(), "https://ai.azure.com/.default"
+)
+
+client = OpenAI(
+    base_url="https://YOUR-RESOURCE-NAME.openai.azure.com/openai/v1/",
+    api_key=token_provider,   # bearer token, refreshed automatically, no secret in code
+)
+
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Ping"}],
+)
+print(response.choices[0].message.content)
+</code></pre>
 </section>
 
 <section id="quotas">
@@ -290,6 +540,117 @@
   </ul>
   <div class="tip">When designing for scale, remember quota is requested/managed per subscription and (for standard deployments) now pooled per model+version — deploying the same model across many regions doesn't multiply your quota automatically.</div>
   <div class="must-know"><b>Must know:</b> Quota is enforced at the <b>subscription level</b> (not per-resource, not per-tenant), is measured primarily via <b>TPM</b>, and throttled requests return <b>HTTP 429</b> — expect the exam to test this scope level and the correct retry behavior.</div>
+
+  <h3>Worked example — handling HTTP 429 with exponential backoff</h3>
+  <span class="lang-tag">Python</span>
+  <pre class="codeblock"><code>import time
+from openai import OpenAI, RateLimitError
+
+client = OpenAI(base_url="https://YOUR-RESOURCE-NAME.openai.azure.com/openai/v1/", api_key=api_key)
+
+def call_with_backoff(messages, max_retries=5):
+    for attempt in range(max_retries):
+        try:
+            return client.chat.completions.create(model="gpt-4o-mini", messages=messages)
+        except RateLimitError:
+            wait = 2 ** attempt  # exponential backoff: 1,2,4,8,16s
+            print(f"429 received, retrying in {wait}s...")
+            time.sleep(wait)
+    raise RuntimeError("Exceeded max retries after repeated 429 responses")
+</code></pre>
+
+  <div class="scenario">
+    <b>Scenario:</b> You deployed the same <code>gpt-4o-mini</code> model as <b>Global Standard</b> in three regions to "multiply" available throughput for a high-traffic app, but you're still hitting 429s at roughly the same aggregate volume as a single-region deployment.<br>
+    <b>Recommended answer:</b> This is expected — <b>quota for Global Standard deployments of the same model+version is pooled at the subscription level</b>, not per region, so deploying across regions does not add capacity; request a <b>quota increase</b> or move the workload to <b>PTU</b>.<br>
+    <b>Rationale:</b> Since mid-2026, Foundry pools Global Standard quota per model/version across all regions in a subscription. Spreading identical deployments across regions improves resilience/latency locality, not total throughput — a key distinction the exam tests.
+  </div>
+</section>
+
+<section id="handson">
+  <h2>11. Hands-On Patterns — tying it together</h2>
+  <p>These worked examples combine multiple concepts from above into realistic end-to-end flows.</p>
+
+  <h3>Pattern A: RAG retrieval + chat completion + citation formatting</h3>
+  <span class="lang-tag">Python</span>
+  <pre class="codeblock"><code>from azure.search.documents import SearchClient
+from azure.core.credentials import AzureKeyCredential
+from openai import AzureOpenAI
+
+search_client = SearchClient("https://my-search.search.windows.net", "kb-index",
+                              AzureKeyCredential("&lt;search-key&gt;"))
+aoai = AzureOpenAI(azure_endpoint="https://my-resource.openai.azure.com/",
+                    api_key="&lt;key&gt;", api_version="2026-xx-xx")
+
+def answer_with_citations(question: str) -> str:
+    hits = list(search_client.search(search_text=question, top=4,
+                                       query_type="semantic", semantic_configuration_name="default"))
+    sources = "\n\n".join(f"[{i+1}] ({h['title']}) {h['content']}" for i, h in enumerate(hits))
+
+    messages = [
+        {"role": "system", "content": (
+            "Answer using ONLY the numbered sources below. Every factual claim must end "
+            "with a bracketed citation like [1]. If the sources don't contain the answer, say so.")},
+        {"role": "user", "content": f"Sources:\n{sources}\n\nQuestion: {question}"},
+    ]
+    resp = aoai.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0)
+    return resp.choices[0].message.content
+
+print(answer_with_citations("What is our data-retention policy for support tickets?"))
+</code></pre>
+
+  <h3>Pattern B: Tool-calling agent that queries live data, then returns Structured Output</h3>
+  <span class="lang-tag">Python</span>
+  <pre class="codeblock"><code>from pydantic import BaseModel
+import json
+
+class OrderStatus(BaseModel):
+    order_id: str
+    status: str
+    eta_days: int
+
+tools = [{"type": "function", "function": {
+    "name": "lookup_order", "description": "Look up an order's shipping status",
+    "parameters": {"type": "object",
+                   "properties": {"order_id": {"type": "string"}},
+                   "required": ["order_id"]}}}]
+
+messages = [{"role": "user", "content": "Where is order 55213?"}]
+resp = client.chat.completions.create(model="gpt-4o-mini", messages=messages,
+                                        tools=tools, tool_choice="auto")
+msg = resp.choices[0].message
+messages.append(msg)
+
+for call in msg.tool_calls or []:
+    args = json.loads(call.function.arguments)
+    result = lookup_order_in_erp(args["order_id"])  # your real backend call
+    messages.append({"tool_call_id": call.id, "role": "tool",
+                      "name": call.function.name, "content": json.dumps(result)})
+
+# Final call constrained to a strict schema for downstream UI rendering
+final = client.beta.chat.completions.parse(model="gpt-4o-mini", messages=messages,
+                                             response_format=OrderStatus)
+order = final.choices[0].message.parsed
+print(order.order_id, order.status, order.eta_days)
+</code></pre>
+
+  <h3>Pattern C: Pre-flight content-filter-aware request with graceful handling</h3>
+  <span class="lang-tag">Python</span>
+  <pre class="codeblock"><code>from openai import BadRequestError
+
+try:
+    resp = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": user_submitted_text}],
+    )
+    print(resp.choices[0].message.content)
+except BadRequestError as e:
+    # Azure returns an "content_filter" error code when prompt or completion is blocked
+    if "content_filter" in str(e):
+        print("Request blocked by content safety filter — route to human review.")
+    else:
+        raise
+</code></pre>
+  <div class="tip">Pattern C illustrates why apps should <b>catch content-filter errors explicitly</b> rather than treat all 400-level errors identically — the exam expects you to distinguish a content-filter block from a malformed-request error.</div>
 </section>
 
 <footer>

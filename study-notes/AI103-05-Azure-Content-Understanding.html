@@ -30,6 +30,11 @@
   li{margin-bottom:4px;}
   .keyword{background:#fffbdd;padding:1px 5px;border-radius:4px;font-weight:600;}
   code{background:#eef1f4;padding:2px 5px;border-radius:4px;font-size:13px;}
+  pre.codeblock{background:#1e1e1e;color:#d4d4d4;padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:12.5px;line-height:1.5;margin:10px 0;}
+  pre.codeblock code{background:none;color:inherit;padding:0;font-size:inherit;}
+  .lang-tag{display:inline-block;background:var(--accent);color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:2px 8px;border-radius:4px 4px 0 0;margin-bottom:-2px;}
+  .scenario{background:#fdf6e3;border:1px solid #e8d9a0;border-radius:8px;padding:14px 18px;margin:14px 0;font-size:13.5px;}
+  .scenario b{color:#8a6d00;}
   .must-know{background:#eafaf1;border:1px solid #b7e4c7;border-radius:8px;padding:10px 16px;margin-top:14px;font-size:13.5px;}
   .must-know b{color:#1e7e34;}
   footer{text-align:center;color:#888;font-size:12px;margin-top:50px;}
@@ -58,6 +63,7 @@
   <a href="#video">8. Video Modality</a>
   <a href="#compare">9. vs Document Intelligence / Vision / Custom Vision</a>
   <a href="#rai">10. Responsible AI &amp; Data Handling</a>
+  <a href="#handson">11. Hands-On Patterns (REST)</a>
 </div>
 
 <section id="overview">
@@ -104,6 +110,48 @@
     <li><strong>Content Understanding Studio</strong> — complementary no-code/low-code UX for building and testing analyzers.</li>
   </ul>
   <div class="must-know"><b>Must know:</b> Field extraction has exactly <strong>three methods</strong> — <code>Extract</code> (verbatim, documents only), <code>Classify</code> (predefined categories), <code>Generate</code> (freeform generative output). Know which method applies to a given exam scenario (e.g., "classify call sentiment" = Classify; "summarize a call" = Generate; "pull invoice date" = Extract).</div>
+
+  <h3>The Analyze → Poll → Result pattern (REST)</h3>
+  <p>Every analyzer call is <strong>asynchronous</strong>: POST to <code>:analyze</code> returns <code>202 Accepted</code> with an <code>Operation-Location</code> header; you poll that URL (GET) until <code>status</code> is <code>Succeeded</code>.</p>
+  <span class="lang-tag">bash / curl — POST analyze</span>
+  <pre class="codeblock"><code>curl -i -X POST "{endpoint}/contentunderstanding/analyzers/prebuilt-invoice:analyze?api-version=2025-11-01" \
+  -H "Ocp-Apim-Subscription-Key: {key}" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "inputs":[{"url": "https://.../invoice.pdf"}]
+      }'
+
+# Response: 202 Accepted
+# Operation-Location: {endpoint}/contentunderstanding/analyzerResults/{request-id}?api-version=2025-11-01</code></pre>
+  <span class="lang-tag">bash / curl — GET result (poll every 1–2s)</span>
+  <pre class="codeblock"><code>curl -i -X GET "{endpoint}/contentunderstanding/analyzerResults/{request-id}?api-version=2025-11-01" \
+  -H "Ocp-Apim-Subscription-Key: {key}"</code></pre>
+  <span class="lang-tag">JSON result (trimmed) — fields with confidence + grounding</span>
+  <pre class="codeblock"><code>{
+  "id": "ce05fb5a-579e-4f0b-afb5-3532bcddeaee",
+  "status": "Succeeded",
+  "result": {
+    "analyzerId": "prebuilt-invoice",
+    "apiVersion": "2025-11-01",
+    "contents": [{
+      "path": "input1",
+      "markdown": "CONTOSO LTD.\n\n# INVOICE\n...",
+      "fields": {
+        "InvoiceId":   { "type": "string", "valueString": "INV-100", "confidence": 0.733, "source": "..." },
+        "InvoiceDate": { "type": "date",   "valueDate": "2019-11-15", "confidence": 0.939, "source": "..." },
+        "AmountDue": {
+          "type": "object",
+          "valueObject": {
+            "Amount":       { "type": "number", "valueNumber": 610, "confidence": 0.773,
+                               "source": "D(1,7.36,8.05,7.93,8.05,7.93,8.21,7.36,8.21)" },
+            "CurrencyCode": { "type": "string", "valueString": "USD" }
+          }
+        }
+      }
+    }]
+  }
+}</code></pre>
+  <div class="tip"><code>source</code> is the <strong>grounding</strong> polygon (page + bounding box coords) tying the value back to its exact location in the document — this is what "grounding" means operationally, and it's what a human-review UI highlights. <code>confidence</code> near 1.0 → safe to automate; low confidence (e.g., <code>CustomerName: 0.46</code>) → route to human review.</div>
 </section>
 
 <section id="analyzers">
@@ -127,6 +175,61 @@
   </ul>
   <div class="tip">Prebuilt analyzer <em>definitions can change</em> between API versions. For production, copy a prebuilt analyzer into your own custom analyzer ID instead of calling the prebuilt one directly, so behavior stays stable.</div>
   <div class="must-know"><b>Must know / exam trap:</b> Custom analyzers are created by specifying a <code>baseAnalyzerId</code> from the four <strong>base analyzers</strong> (document/image/audio/video) — not from a RAG or domain-specific analyzer. Prebuilt analyzers can still be used as editable <em>templates</em> by GET-then-PUT of their JSON definition.</div>
+
+  <h3>Worked example: custom document analyzer (receipt extractor)</h3>
+  <span class="lang-tag">JSON Schema — PUT /analyzers/receipt</span>
+  <pre class="codeblock"><code>{
+  "description": "Sample receipt analyzer",
+  "baseAnalyzerId": "prebuilt-document",
+  "models": { "completion": "gpt-5.2", "embedding": "text-embedding-3-large" },
+  "config": {
+    "returnDetails": true,
+    "enableFormula": false,
+    "estimateFieldSourceAndConfidence": true,
+    "tableFormat": "html"
+  },
+  "fieldSchema": {
+    "fields": {
+      "VendorName": {
+        "type": "string", "method": "extract",
+        "description": "Vendor issuing the receipt"
+      },
+      "Items": {
+        "type": "array", "method": "extract",
+        "items": {
+          "type": "object",
+          "properties": {
+            "Description": { "type": "string", "method": "extract" },
+            "Amount":      { "type": "number", "method": "extract" }
+          }
+        }
+      }
+    }
+  }
+}</code></pre>
+  <span class="lang-tag">bash / curl — create the analyzer</span>
+  <pre class="codeblock"><code>curl -i -X PUT "{endpoint}/contentunderstanding/analyzers/receipt?api-version=2025-11-01" \
+  -H "Ocp-Apim-Subscription-Key: {key}" \
+  -H "Content-Type: application/json" \
+  -d @receipt.json</code></pre>
+  <h3>Worked example: image analyzer with Classify + enum (chart type)</h3>
+  <span class="lang-tag">JSON Schema — image analyzer</span>
+  <pre class="codeblock"><code>{
+  "description": "Chart/graph analyzer",
+  "baseAnalyzerId": "prebuilt-image",
+  "models": { "completion": "gpt-5.2" },
+  "fieldSchema": {
+    "fields": {
+      "Title": { "type": "string" },
+      "ChartType": {
+        "type": "string",
+        "method": "classify",
+        "enum": ["bar", "line", "pie"]
+      }
+    }
+  }
+}</code></pre>
+  <div class="tip">Note the pattern across modalities: <code>method:"extract"</code> needs no <code>enum</code> (pulls a literal value); <code>method:"classify"</code> requires an <code>enum</code> list of allowed categories; <code>method:"generate"</code> needs neither — the model free-form produces the value (e.g., a <code>Summary</code> field).</div>
 </section>
 
 <section id="modes">
@@ -148,6 +251,8 @@
   </ul>
   <div class="tip">Exam objectives may use the older marketing term <strong>"pro mode"</strong> for this advanced/multistep reasoning pipeline — current Microsoft Learn docs call it <strong>Agentic mode</strong>. Treat them as the same concept: standard single-task extraction vs. advanced multistep reasoning over evidence.</div>
   <div class="must-know"><b>Must know:</b> Choose the <strong>standard pipeline</strong> when the field value is explicitly stated in the content; choose the <strong>advanced/agentic ("pro") pipeline</strong> when the answer requires calculation, cross-reference, or validation across multiple parts of a document.</div>
+
+  <div class="scenario"><b>Scenario:</b> A finance team uploads multi-page vendor contracts and wants a single field, <code>TotalContractValue</code>, that must be computed by summing line-item amounts scattered across three appendices, then cross-checked against a stated "not-to-exceed" cap in the cover page. Which pipeline/config should you use? <br><b>Answer:</b> Standard extraction can't connect facts across sections or perform arithmetic validation — set <code>config.workflow = "agentic"</code> (API <code>2026-06-01-preview</code>) on a document analyzer so the model reasons across the whole file, computes the sum, and validates it against the cap. Still require human sign-off before using the result for payment (agentic mode isn't a replacement for human review in high-impact decisions).</div>
 </section>
 
 <section id="document">
@@ -214,6 +319,32 @@
   </ul>
   <div class="tip">Avoid transcription quality issues: when you are <em>not</em> intentionally using multilingual transcription, always explicitly configure <code>locales</code> — unsupported locales under multilingual mode silently fall back to the "closest" supported locale, which can be wrong.</div>
   <div class="must-know"><b>Must know:</b> Audio field extraction can <strong>Generate</strong> (summaries), <strong>Classify</strong> (sentiment/category), from a transcript enriched by diarization + role detection — this preprocessing gives the generative model the context it needs.</div>
+
+  <h3>Worked example: custom call-center audio analyzer</h3>
+  <span class="lang-tag">JSON Schema — audio analyzer</span>
+  <pre class="codeblock"><code>{
+  "description": "Sample customer support call analyzer",
+  "baseAnalyzerId": "prebuilt-audio",
+  "config": { "locales": ["en-US", "fr-FR"], "returnDetails": true },
+  "fieldSchema": {
+    "fields": {
+      "Summary":   { "type": "string", "method": "generate" },
+      "Sentiment": { "type": "string", "method": "classify",
+                     "enum": ["Positive", "Neutral", "Negative"] },
+      "People": {
+        "type": "array",
+        "description": "List of people mentioned",
+        "items": {
+          "type": "object",
+          "properties": {
+            "Name": { "type": "string" },
+            "Role": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}</code></pre>
 </section>
 
 <section id="video">
@@ -255,6 +386,8 @@
     <tr><td><strong>Azure AI Custom Vision</strong></td><td>(Legacy) custom image classification/object detection training.</td><td>Microsoft recommends <strong>Content Understanding's image analyzers</strong> as the modern replacement path for classification-style scenarios, leveraging generative schema-based extraction instead of training custom CV models.</td></tr>
   </table>
   <div class="must-know"><b>Must know / exam trap:</b> Content Understanding does <strong>not replace</strong> Document Intelligence — it <em>incorporates</em> it for structured/templated docs while adding generative capability for unstructured/multimodal cases. For brand-new classification scenarios, Microsoft positions Content Understanding (not Custom Vision) as the recommended approach going forward.</div>
+
+  <div class="scenario"><b>Scenario:</b> You need to process thousands of highly standardized, fixed-layout government tax forms (same template every time) with the lowest possible latency and cost, and no need for generative reasoning. Which service should you pick: Content Understanding or Document Intelligence? <br><b>Answer:</b> <strong>Azure AI Document Intelligence</strong> (its prebuilt/custom template models) — deterministic, low-latency, cheaper for fixed-layout forms. Reach for Content Understanding when layouts vary, content is multimodal, or you need schema-driven generative extraction/classification/reasoning on top of the raw OCR — e.g., the same tax-form pipeline later needs an LLM-generated eligibility summary cross-referencing multiple fields.</div>
 </section>
 
 <section id="rai">
@@ -267,6 +400,72 @@
     <li>Use GA API version <code>2025-11-01</code> for production workloads; use preview versions only for evaluation of new capabilities.</li>
   </ul>
   <div class="must-know"><b>Must know:</b> Grounding + confidence scores are the key Responsible-AI control pattern in Content Understanding — they enable human-in-the-loop review for low-certainty extractions instead of blind automation.</div>
+</section>
+
+<section id="handson">
+  <h2>11. Hands-On Patterns (REST)</h2>
+  <p>Quick-reference patterns that show up repeatedly in exam scenarios and real implementations.</p>
+
+  <h3>Pattern: set resource-level default model deployments (one-time setup)</h3>
+  <span class="lang-tag">bash / curl</span>
+  <pre class="codeblock"><code>curl -i -X PATCH "{endpoint}/contentunderstanding/defaults?api-version=2026-06-01-preview" \
+  -H "Ocp-Apim-Subscription-Key: {key}" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "modelDeployments": {
+          "{completionModelName}": "{completionDeploymentName}",
+          "{embeddingModelName}": "{embeddingDeploymentName}"
+        }
+      }'</code></pre>
+
+  <h3>Pattern: classify-then-route (triage mixed documents before extraction)</h3>
+  <span class="lang-tag">JSON Schema — categorize.json</span>
+  <pre class="codeblock"><code>{
+  "baseAnalyzerId": "prebuilt-document",
+  "models": { "completion": "gpt-5.2" },
+  "config": {
+    "enableSegment": false,
+    "contentCategories": {
+      "receipt":      { "description": "Any images or documents of receipts",
+                         "analyzerId": "receipt" },
+      "invoice":       { "description": "Any images or documents of invoice",
+                         "analyzerId": "prebuilt-invoice" },
+      "policeReport":  { "description": "A police/law-enforcement report of a loss event" }
+    },
+    "omitContent": true
+  }
+}</code></pre>
+  <div class="tip">This single analyzer classifies an incoming mixed-content batch into categories, then routes each category to its own target analyzer (<code>analyzerId</code>) for field extraction in one Analyze call — useful when a mailbox/intake folder receives invoices, receipts, and reports interchangeably. A category with no <code>analyzerId</code> (like <code>policeReport</code> above) is classified but not further extracted.</div>
+
+  <h3>Pattern: video field schema with per-segment generate + classify</h3>
+  <span class="lang-tag">JSON Schema — video analyzer</span>
+  <pre class="codeblock"><code>{
+  "description": "Sample product demo video analyzer",
+  "baseAnalyzerId": "prebuilt-video",
+  "models": { "completion": "gpt-5.2" },
+  "config": { "locales": ["en-US", "fr-FR"], "returnDetails": true },
+  "fieldSchema": {
+    "fields": {
+      "Segments": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "SegmentId": { "type": "string" },
+            "Description": { "type": "string", "method": "generate",
+              "description": "Detailed summary of the segment: product characteristics, lighting, color palette" },
+            "Sentiment": { "type": "string", "method": "classify",
+              "enum": ["Positive", "Neutral", "Negative"] }
+          }
+        }
+      }
+    }
+  }
+}</code></pre>
+
+  <div class="scenario"><b>Scenario:</b> An exam item describes an intake pipeline that receives a mix of invoices, receipts, and free-text incident reports in one shared folder, and asks for the single most efficient Content Understanding configuration to both categorize and extract fields from each type without writing custom routing code. <br><b>Answer:</b> Use <strong>one analyzer</strong> built on <code>baseAnalyzerId: "prebuilt-document"</code> with <code>config.contentCategories</code> defining each document type and (for types you want extracted) an <code>analyzerId</code> pointing at a dedicated extraction analyzer — this "classify-then-route" pattern avoids a separate classification step/service and returns categorized + extracted results from a single Analyze call.</div>
+
+  <div class="must-know"><b>Must know:</b> Every Analyze call follows <strong>POST (202 + Operation-Location) → poll GET → status:"Succeeded"</strong>. Each extracted field carries <code>type</code>, the typed value (<code>valueString</code>/<code>valueNumber</code>/<code>valueDate</code>/<code>valueObject</code>/<code>valueArray</code>), <code>confidence</code> (0–1), and <code>source</code> (grounding polygon) when <code>estimateFieldSourceAndConfidence</code> is enabled.</div>
 </section>
 
 <footer>

@@ -30,6 +30,11 @@
   li{margin-bottom:4px;}
   .keyword{background:#fffbdd;padding:1px 5px;border-radius:4px;font-weight:600;}
   code{background:#eef1f4;padding:2px 5px;border-radius:4px;font-size:13px;}
+  pre.codeblock{background:#1e1e1e;color:#d4d4d4;padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:12.5px;line-height:1.5;margin:10px 0;}
+  pre.codeblock code{background:none;color:inherit;padding:0;font-size:inherit;}
+  .lang-tag{display:inline-block;background:var(--accent);color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:2px 8px;border-radius:4px 4px 0 0;margin-bottom:-2px;}
+  .scenario{background:#fdf6e3;border:1px solid #e8d9a0;border-radius:8px;padding:14px 18px;margin:14px 0;font-size:13.5px;}
+  .scenario b{color:#8a6d00;}
   .must-know{background:#eafaf1;border:1px solid #b7e4c7;border-radius:8px;padding:10px 16px;margin-top:14px;font-size:13.5px;}
   .must-know b{color:#1e7e34;}
   footer{text-align:center;color:#888;font-size:12px;margin-top:50px;}
@@ -61,6 +66,7 @@
   <a href="#qa">8. Question Answering</a>
   <a href="#custom">9. Customization (Custom NER / Classification)</a>
   <a href="#llm">10. LLM/Generative vs. Prebuilt APIs</a>
+  <a href="#handson">Hands-On Patterns</a>
   <a href="#cheat">11. Exam Cheat Sheet</a>
 </div>
 
@@ -99,6 +105,25 @@
   <h3>Entity linking</h3>
   <p>A related preconfigured feature: disambiguates identified entities and links them to a knowledge base (Wikipedia), useful when the same name could refer to multiple real-world entities.</p>
   <div class="tip">Use prebuilt NER for common categories out-of-the-box (Person, Location, Organization, DateTime, Quantity, Email, URL, etc.). Reach for <strong>custom NER</strong> only when you need categories specific to your domain/business.</div>
+  <h3>Prebuilt NER — Python SDK example</h3>
+  <span class="lang-tag">Python</span>
+  <pre class="codeblock"><code>from azure.ai.textanalytics import TextAnalyticsClient
+from azure.core.credentials import AzureKeyCredential
+
+endpoint = "&lt;your-endpoint&gt;"
+key = "&lt;your-key&gt;"
+client = TextAnalyticsClient(endpoint=endpoint, credential=AzureKeyCredential(key))
+
+documents = ["I had a wonderful trip to Seattle last week."]
+result = client.recognize_entities(documents)[0]
+
+print("Named Entities:")
+for entity in result.entities:
+    print(f"\tText: {entity.text}\tCategory: {entity.category}\tSub-Category: {entity.subcategory}")
+    print(f"\t\tScore: {entity.confidence_score:.2f}\tLength: {entity.length}\tOffset: {entity.offset}")
+</code></pre>
+  <p style="font-size:13px;color:#555;">Sample output: <code>trip → Event (0.74)</code>, <code>Seattle → Location/GPE (1.00)</code>, <code>last week → DateTime/DateRange (0.80)</code>. Same shape (text, category, sub-category, confidence score, offset, length) is returned by every NER client — install with <code>pip install azure-ai-textanalytics</code>.</p>
+  <div class="scenario"><b>Scenario:</b> A logistics company wants to pull out <em>PartSKU</em> and <em>WarehouseCode</em> tokens from free-text shipping notes — categories prebuilt NER doesn't recognize. <b>Answer:</b> Custom NER — label example notes with the two custom categories, then train/evaluate/deploy; prebuilt NER cannot be extended with new categories without custom training.</div>
   <div class="must-know"><b>Must know:</b> Prebuilt NER needs no training data; Custom NER requires labeled examples and a train/evaluate/deploy cycle, same as CLU and custom text classification.</div>
 </section>
 
@@ -113,6 +138,39 @@
   </table>
   <p>All three return structured output with entity categories, confidence scores, and redacted text/documents. PII detection also supports a preview <strong>synthetic replacement / anonymization</strong> mode (replace PII with realistic-looking fake values instead of masking with <code>***</code>).</p>
   <div class="tip">PII and Language detection are the two "core" prebuilt features most directly aligned with everyday compliance scenarios on the exam — expect scenario questions like "redact SSNs from chat transcripts before storage" → Conversation PII.</div>
+  <h3>Text PII — REST example</h3>
+  <span class="lang-tag">REST</span>
+  <pre class="codeblock"><code>POST {endpoint}/language/:analyze-text?api-version=2023-04-01
+Ocp-Apim-Subscription-Key: &lt;your-key&gt;
+Content-Type: application/json
+
+{
+  "kind": "PiiEntityRecognition",
+  "parameters": { "modelVersion": "latest" },
+  "analysisInput": {
+    "documents": [
+      { "id": "1", "language": "en",
+        "text": "Call our agent Rita Soni at 555-0123 or email rita@contoso.com about claim #A19283." }
+    ]
+  }
+}
+
+&#47;* Response (abridged) *&#47;
+{
+  "results": {
+    "documents": [{
+      "id": "1",
+      "redactedText": "Call our agent ******** at ************ or email ****************** about claim #A19283.",
+      "entities": [
+        { "text": "Rita Soni", "category": "Person", "offset": 16, "length": 9, "confidenceScore": 0.98 },
+        { "text": "555-0123", "category": "PhoneNumber", "offset": 29, "length": 8, "confidenceScore": 0.8 },
+        { "text": "rita@contoso.com", "category": "Email", "offset": 47, "length": 17, "confidenceScore": 0.8 }
+      ]
+    }]
+  }
+}
+</code></pre>
+  <div class="scenario"><b>Scenario:</b> A call center stores multi-turn chat transcripts and must strip phone numbers and names before archiving, while a separate pipeline ingests uploaded PDF claim forms and must preserve the original layout with sensitive fields blacked out. <b>Answer:</b> Use <strong>Conversation PII</strong> (async) for the chat transcripts and <strong>Document-based PII</strong> (async) for the PDFs — both differ from simple <strong>Text PII</strong>, which only takes raw strings synchronously.</div>
   <div class="must-know"><b>Must know:</b> Choose the PII feature type by <em>input shape</em>, not by data sensitivity: single strings → Text PII; multi-turn chat/call transcripts → Conversation PII; whole files (PDF/DOCX) → Document-based PII (async, preserves document fidelity).</div>
 </section>
 
@@ -133,6 +191,26 @@
   <p><strong>Sentiment analysis</strong> labels text as <span class="keyword">positive</span>, <span class="keyword">neutral</span>, or <span class="keyword">negative</span> at both the <strong>document</strong> and <strong>sentence</strong> level, each with confidence scores (0–1) across all three labels.</p>
   <p><strong>Opinion mining</strong> (a.k.a. aspect-based sentiment analysis) is an optional, more granular extension of sentiment analysis: it links sentiment to specific <em>aspects</em> (e.g., product/service attributes) and their associated opinion words. Example: "The food was great, but the service was slow" → aspect "food" = positive, aspect "service" = slow/negative.</p>
   <div class="retire">Sentiment analysis &amp; opinion mining retire from Azure Language on <strong>March 31, 2029</strong>. Microsoft directs new projects to Foundry models instead — know this fact for "which approach should you use for a brand-new project" questions.</div>
+  <h3>Sentiment + opinion mining — Python SDK example</h3>
+  <span class="lang-tag">Python</span>
+  <pre class="codeblock"><code>from azure.ai.textanalytics import TextAnalyticsClient
+from azure.core.credentials import AzureKeyCredential
+
+client = TextAnalyticsClient(endpoint="&lt;your-endpoint&gt;", credential=AzureKeyCredential("&lt;your-key&gt;"))
+
+documents = ["The food was great, but the service was slow."]
+# show_opinion_mining=True enables aspect-based sentiment
+result = client.analyze_sentiment(documents, show_opinion_mining=True)[0]
+
+print(f"Overall sentiment: {result.sentiment}")
+for sentence in result.sentences:
+    print(f"  Sentence: '{sentence.text}' -> {sentence.sentiment}")
+    for mined in sentence.mined_opinions:
+        print(f"    Aspect: '{mined.target.text}' -> {mined.target.sentiment}")
+        for opinion in mined.assessments:
+            print(f"      Opinion: '{opinion.text}' ({opinion.sentiment})")
+</code></pre>
+  <p style="font-size:13px;color:#555;">Output surfaces two levels: sentence-level sentiment ("mixed") and, because <code>show_opinion_mining=True</code>, aspect pairs — <code>food → positive</code> ("great"), <code>service → negative</code> ("slow").</p>
   <div class="must-know"><b>Must know:</b> Opinion mining is a sub-feature you explicitly enable on top of sentiment analysis to get aspect-level (not just whole-sentence) sentiment — it doesn't replace sentence/document sentiment, it augments it.</div>
 </section>
 
@@ -150,6 +228,34 @@
     <li><strong>Conversation summarization</strong>: accepts multi-turn conversational input (chat or speech-derived transcripts); can produce issue/resolution summaries, chapter titles, recaps — tuned for meeting/call-center scenarios.</li>
   </ul>
   <div class="tip">Exam trap: extractive = "copy the best sentences" (traceable, auditable, good for compliance where you must cite the original wording); abstractive = "rewrite in new words" (more fluent but can hallucinate — generative/LLM-based).</div>
+  <h3>Text summarization — REST example</h3>
+  <span class="lang-tag">REST</span>
+  <pre class="codeblock"><code>POST {endpoint}/language/analyze-text/jobs?api-version=2023-04-01
+Ocp-Apim-Subscription-Key: &lt;your-key&gt;
+Content-Type: application/json
+
+{
+  "displayName": "Extractive Summarization",
+  "analysisInput": {
+    "documents": [
+      { "id": "1", "language": "en", "text": "&lt;long document text...&gt;" }
+    ]
+  },
+  "tasks": [
+    {
+      "kind": "ExtractiveSummarization",
+      "taskName": "Extractive Summarization Task",
+      "parameters": { "sentenceCount": 3, "sortBy": "Rank" }
+    }
+  ]
+}
+
+&#47;* Poll the operation-location header for job status, then GET the result; each
+   extracted sentence includes rankScore, offset, and length. Swap "kind" to
+   "AbstractiveSummarization" (parameters: {"sentenceCount": 3}) to get newly
+   generated summary text + the contextual input range it was derived from. *&#47;
+</code></pre>
+  <div class="scenario"><b>Scenario:</b> A regulated insurance firm needs call-center transcripts condensed into a summary for audits, and reviewers must be able to trace every summary sentence back to exact wording the customer or agent said. <b>Answer:</b> Extractive summarization — it returns verbatim original sentences with offsets/rank scores, unlike abstractive summarization which paraphrases into new text.</div>
   <div class="retire">Summarization also retires March 31, 2029 in favor of Microsoft Foundry models — but for the current exam version, know both extractive and abstractive mechanics and their distinct output shapes.</div>
   <div class="must-know"><b>Must know:</b> Extractive summarization returns original sentences + a rank score; abstractive summarization returns newly generated text + the input range used — if a question emphasizes "must use exact original wording," the answer is extractive.</div>
 </section>
@@ -181,6 +287,78 @@
     <li>Human-assistant / HR / enterprise chatbots</li>
     <li>Command-and-control apps paired with speech-to-text (e.g., "play", "stop", "turn off the lights")</li>
   </ul>
+  <h3>Project schema (intents &amp; entities) — JSON example</h3>
+  <span class="lang-tag">JSON</span>
+  <pre class="codeblock"><code>{
+  "projectFileVersion": "2023-04-01",
+  "metadata": {
+    "projectKind": "Conversation",
+    "projectName": "EmailAppDemo",
+    "language": "en",
+    "multilingual": true,
+    "settings": { "confidenceThreshold": 0.7 }
+  },
+  "assets": {
+    "projectKind": "Conversation",
+    "intents": [
+      { "category": "ReadEmail" },
+      { "category": "DeleteEmail" },
+      { "category": "None" }
+    ],
+    "entities": [
+      { "category": "ContactName" },
+      { "category": "EmailFolder" }
+    ],
+    "utterances": [
+      {
+        "text": "delete the email from Sarah in my inbox",
+        "intent": "DeleteEmail",
+        "dataset": "Train",
+        "entities": [
+          { "category": "ContactName", "offset": 23, "length": 5 },
+          { "category": "EmailFolder", "offset": 32, "length": 6 }
+        ]
+      }
+    ]
+  }
+}
+</code></pre>
+  <h3>Calling the deployed model — REST prediction example</h3>
+  <span class="lang-tag">REST</span>
+  <pre class="codeblock"><code>POST {endpoint}/language/:analyze-conversations?api-version=2023-04-01
+Ocp-Apim-Subscription-Key: &lt;your-key&gt;
+Content-Type: application/json
+
+{
+  "kind": "Conversation",
+  "analysisInput": {
+    "conversationItem": {
+      "id": "1", "participantId": "user1", "text": "delete the email from Sarah in my inbox"
+    }
+  },
+  "parameters": {
+    "projectName": "EmailAppDemo",
+    "deploymentName": "production",
+    "verbose": true
+  }
+}
+
+&#47;* Response (abridged) *&#47;
+{
+  "result": {
+    "query": "delete the email from Sarah in my inbox",
+    "prediction": {
+      "topIntent": "DeleteEmail",
+      "intents": [{ "category": "DeleteEmail", "confidenceScore": 0.97 }],
+      "entities": [
+        { "category": "ContactName", "text": "Sarah", "offset": 23, "length": 5, "confidenceScore": 0.95 },
+        { "category": "EmailFolder", "text": "inbox", "offset": 32, "length": 6, "confidenceScore": 0.91 }
+      ]
+    }
+  }
+}
+</code></pre>
+  <div class="scenario"><b>Scenario:</b> A team needs a bot that reliably triggers a fixed set of backend actions ("BookFlight", "CancelOrder") from short, predictable customer commands, with low latency and a stable confidence score they can threshold on for automated routing. Another team wants to pull arbitrary, loosely structured fields (vendor name, line items, totals) out of highly varied invoice emails into a custom JSON shape. <b>Answer:</b> The first is a textbook <strong>CLU</strong> use case (closed intent set, slot-filling entities, deterministic confidence scoring for routing). The second favors <strong>generative/LLM prompting</strong> (Foundry models) because the extraction target is open-ended and varies document to document — CLU's fixed intent/entity schema doesn't flex well to that kind of variability.</div>
   <h3>Orchestration workflow</h3>
   <p>A separate custom feature that sits above CLU and Question Answering: it routes an incoming utterance to the correct underlying CLU project or Question Answering knowledge base ("skill") when you have multiple specialized models (e.g., calendar skill vs. FAQ skill in one enterprise bot).</p>
   <div class="must-know"><b>Must know:</b> CLU = successor to LUIS, for <em>intent + entity prediction only</em> — it never executes actions. If a scenario needs to route between multiple CLU projects and a Question Answering KB, the answer is <strong>Orchestration workflow</strong>.</div>
@@ -233,6 +411,18 @@
   <p>Azure Language capabilities are also exposed as callable <strong>tools in the Microsoft Foundry Tool Catalog</strong> (as a remote MCP server, or self-hosted locally) — meaning an agent built in Foundry can invoke NER/PII/summarization/etc. as a tool call rather than you writing direct REST calls. This is the bridge between "classic Language APIs" and "LLM agents": an agent's orchestrating LLM decides when to call a Language tool (e.g., redact PII) versus when to generate an answer itself.</p>
   <div class="tip">Exam framing: when a scenario needs <em>flexible, instruction-following</em> extraction into a custom JSON schema, or combines extraction with summarization/translation/reasoning in one step, lean toward <strong>generative/LLM prompting via Foundry</strong>. When a scenario needs <em>fast, deterministic, auditable</em> entity/sentiment/PII detection with built-in confidence scores, the <strong>prebuilt Language API</strong> is still the right call.</div>
   <div class="must-know"><b>Must know:</b> Prebuilt Language APIs return fixed schemas with confidence scores and are optimized for deterministic, compliance-friendly analysis; generative/LLM prompting (Foundry models) trades some determinism for flexible, custom-schema extraction and can be invoked as a tool from an agent.</div>
+</section>
+
+<section id="handson">
+  <h2>Hands-On Patterns — Putting It Together</h2>
+  <p>A few practical patterns that come up repeatedly in exam scenario questions and real projects:</p>
+  <ul>
+    <li><strong>Batch multiple features in one call:</strong> the <code>:analyze-text</code> endpoint accepts a <code>tasks</code> array so you can run NER + PII + sentiment on the same document set in a single async job instead of three round-trips.</li>
+    <li><strong>Pipeline order:</strong> Language detection → (translate if needed) → NER/PII/sentiment/summarization — detect language first so the right model variant is used downstream.</li>
+    <li><strong>Confidence thresholds drive automation:</strong> CLU's <code>confidenceThreshold</code> setting and per-entity <code>confidenceScore</code> values are what your app logic should branch on (e.g., route to a human if top intent score &lt; 0.7).</li>
+    <li><strong>Auth pattern is identical across features:</strong> every REST call uses the same <code>Ocp-Apim-Subscription-Key</code> header (or Entra ID bearer token) and the same resource <code>{endpoint}</code> — only the path (<code>/language/:analyze-text</code>, <code>/language/:analyze-conversations</code>, <code>/language/authoring/...</code>) and <code>kind</code>/body shape change per feature.</li>
+    <li><strong>Async jobs follow the same lifecycle everywhere:</strong> POST to start → 202 + <code>operation-location</code> header → GET to poll <code>status</code> until <code>succeeded</code> → GET/download results. This applies to Conversation PII, Document PII, Summarization jobs, and CLU training/import jobs alike.</li>
+  </ul>
 </section>
 
 <section id="cheat">

@@ -30,6 +30,11 @@
   li{margin-bottom:4px;}
   .keyword{background:#fffbdd;padding:1px 5px;border-radius:4px;font-weight:600;}
   code{background:#eef1f4;padding:2px 5px;border-radius:4px;font-size:13px;}
+  pre.codeblock{background:#1e1e1e;color:#d4d4d4;padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:12.5px;line-height:1.5;margin:10px 0;}
+  pre.codeblock code{background:none;color:inherit;padding:0;font-size:inherit;}
+  .lang-tag{display:inline-block;background:var(--accent);color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:2px 8px;border-radius:4px 4px 0 0;margin-bottom:-2px;}
+  .scenario{background:#fdf6e3;border:1px solid #e8d9a0;border-radius:8px;padding:14px 18px;margin:14px 0;font-size:13.5px;}
+  .scenario b{color:#8a6d00;}
   .must-know{background:#eafaf1;border:1px solid #b7e4c7;border-radius:8px;padding:10px 16px;margin-top:14px;font-size:13.5px;}
   .must-know b{color:#1e7e34;}
   footer{text-align:center;color:#888;font-size:12px;margin-top:50px;}
@@ -58,6 +63,7 @@
     <a href="#output">6. Output Formats &amp; RAG</a>
     <a href="#resources">7. Resources, Pricing &amp; Limits</a>
     <a href="#exam">8. Exam Quick Reference</a>
+    <a href="#handson">9. Hands-On Patterns</a>
   </nav>
 
   <section id="overview">
@@ -87,6 +93,33 @@
     </ul>
     <div class="tip">Read supports more file types than you'd expect: PDF, JPEG/PNG/BMP/TIFF/HEIF images, and DOCX/XLSX/PPTX/HTML office documents in v4.0.</div>
     <div class="must-know"><b>Must know:</b> Read is the shared OCR foundation — every other model (Layout, prebuilt, custom) builds on it. If asked "what extracts handwritten + printed text as the base layer," the answer is <b>Read</b>, model ID <code>prebuilt-read</code>.</div>
+    <h3>Code: analyze a document with Read (Python SDK)</h3>
+    <span class="lang-tag">Python</span>
+    <pre class="codeblock"><code>from azure.ai.documentintelligence import DocumentIntelligenceClient
+from azure.ai.documentintelligence.models import AnalyzeOutputOption
+from azure.core.credentials import AzureKeyCredential
+
+endpoint = "https://my-di.cognitiveservices.azure.com/"
+client = DocumentIntelligenceClient(endpoint, AzureKeyCredential("&lt;key&gt;"))
+
+with open("scanned-notes.pdf", "rb") as f:
+    poller = client.begin_analyze_document(
+        "prebuilt-read",
+        body=f,
+        output=[AnalyzeOutputOption.PDF],   # request a searchable PDF back
+    )
+result = poller.result()
+
+for page in result.pages:
+    for line in page.lines:
+        print(line.content)
+
+# Download the searchable PDF produced alongside the JSON result
+operation_id = poller.details["operation_id"]
+pdf_bytes = client.get_analyze_result_pdf(model_id="prebuilt-read", result_id=operation_id)
+with open("scanned-notes-searchable.pdf", "wb") as out:
+    out.write(b"".join(pdf_bytes))
+</code></pre>
   </section>
 
   <section id="layout">
@@ -110,6 +143,37 @@
     <p>Note: the legacy "General document" model (key-value pair extraction without training) has been folded into the Layout model's capabilities in v4.0 via the <code>keyValuePairs</code> add-on feature.</p>
     <div class="tip">Use Layout when you need structure (tables, headings, checkboxes) from a document whose format <em>varies</em> or isn't covered by a prebuilt model — e.g., ingesting arbitrary PDFs/reports into a knowledge base.</div>
     <div class="must-know"><b>Must know:</b> Layout = structure extraction (tables, selection marks, paragraph roles) with <b>no training needed</b>. It is the model exam questions point to for "extract tables/structure from generic documents" and for producing <b>Markdown</b> output for RAG ingestion.</div>
+    <h3>Code: Layout with Markdown output (REST API)</h3>
+    <span class="lang-tag">REST</span>
+    <pre class="codeblock"><code>POST {endpoint}/documentintelligence/documentModels/prebuilt-layout:analyze?outputContentFormat=markdown&api-version=2024-11-30
+Content-Type: application/json
+Ocp-Apim-Subscription-Key: &lt;key&gt;
+
+{
+  "urlSource": "https://example.com/annual-report.pdf"
+}
+
+&#35; Response is 202 + Operation-Location header; poll it:
+GET {endpoint}/documentintelligence/documentModels/prebuilt-layout/analyzeResults/{resultId}?api-version=2024-11-30
+Ocp-Apim-Subscription-Key: &lt;key&gt;
+
+&#35; result.analyzeResult.content now holds Markdown, e.g.:
+&#35; "# Annual Report\n\n## Revenue Summary\n\n| Quarter | Revenue |\n| --- | --- |\n| Q1 | $4.2M |"
+</code></pre>
+    <span class="lang-tag">Python</span>
+    <pre class="codeblock"><code>from azure.ai.documentintelligence.models import DocumentContentFormat
+
+poller = client.begin_analyze_document(
+    "prebuilt-layout",
+    body={"urlSource": "https://example.com/annual-report.pdf"},
+    output_content_format=DocumentContentFormat.MARKDOWN,
+)
+result = poller.result()
+markdown_text = result.content            # ready to chunk + embed for RAG
+for table in result.tables:
+    print(table.row_count, table.column_count)
+</code></pre>
+    <div class="scenario"><b>Exam scenario:</b> A company ingests thousands of heterogeneous vendor PDFs (no single template) into a knowledge base that an Azure AI Foundry Agent uses to answer employee questions. Which model + output format should you choose, and why? <br><b>Answer:</b> <code>prebuilt-layout</code> with <code>outputContentFormat=markdown</code> — no custom training is needed because layouts vary, and Markdown preserves headings/tables in a form that chunks cleanly for embeddings and grounds the agent's responses (via Azure AI Search) instead of raw bounding-box JSON.</div>
   </section>
 
   <section id="prebuilt">
@@ -131,6 +195,34 @@
     </table>
     <div class="tip">Business card prebuilt model existed in v2.1–3.1 but is not listed as a separate v4.0 model — in v4.0, financial/legal + US tax + US mortgage + personal ID categories are the current taxonomy. Know both for version-aware questions.</div>
     <div class="must-know"><b>Must know:</b> Prebuilt models = zero training, fixed Microsoft-maintained schema, typed fields (date/currency/address/etc.). Use prebuilt <b>Invoice</b>/<b>Receipt</b>/<b>ID document</b> whenever the exam scenario names one of these common document types — don't build a custom model for things Microsoft already covers.</div>
+    <h3>Code: analyze an invoice with the prebuilt model (Python SDK)</h3>
+    <span class="lang-tag">Python</span>
+    <pre class="codeblock"><code>from azure.ai.documentintelligence import DocumentIntelligenceClient
+from azure.core.credentials import AzureKeyCredential
+
+client = DocumentIntelligenceClient(
+    endpoint="https://my-di.cognitiveservices.azure.com/",
+    credential=AzureKeyCredential("&lt;key&gt;"),
+)
+
+with open("invoice.pdf", "rb") as f:
+    poller = client.begin_analyze_document("prebuilt-invoice", body=f)
+result = poller.result()
+
+for doc in result.documents:
+    fields = doc.fields
+    vendor = fields.get("VendorName")
+    total = fields.get("InvoiceTotal")
+    due_date = fields.get("DueDate")
+    print(f"Vendor: {vendor.value_string if vendor else 'N/A'}")
+    print(f"Total:  {total.value_currency.amount if total else 'N/A'}")
+    print(f"Due:    {due_date.value_date if due_date else 'N/A'}")
+
+    for item in fields.get("Items", {}).value_array or []:
+        line = item.value_object
+        print(" -", line["Description"].value_string, line["Amount"].value_currency.amount)
+</code></pre>
+    <div class="scenario"><b>Exam scenario:</b> Accounts payable wants to auto-extract vendor, due date, and line-item totals from thousands of incoming supplier invoices that follow many different vendor layouts, with no development time to label training data. What's the right model choice, and when (if ever) would you switch to a custom model instead? <br><b>Answer:</b> Use <code>prebuilt-invoice</code> first — it already returns typed fields (<code>VendorName</code>, <code>InvoiceTotal</code> as currency, <code>DueDate</code> as date) with zero training across varied vendor formats. Only move to a <b>custom neural</b> model if the business needs fields the prebuilt schema doesn't cover (e.g., an internal PO-matching code) or the extraction accuracy for a specific non-standard field type is insufficient — and even then, a <b>custom composed</b> model can combine your custom fields with the prebuilt invoice extraction via a classifier.</div>
   </section>
 
   <section id="custom">
@@ -147,6 +239,54 @@
     <p>Identifies the <strong>document type/class</strong> before an extraction model runs — useful when incoming documents are a mixed bag (e.g., a scanned mailroom batch) and you need to route each to the correct extraction model. Supported since API 2023-07-31. Max training data: 1–2 GB, up to 10,000 pages.</p>
     <div class="tip">Decision rule: <b>Prebuilt</b> if the doc type matches a Microsoft schema (invoice, receipt, ID, tax form) → fastest, no training. <b>Custom template</b> if your forms are static/consistent and prebuilt doesn't fit. <b>Custom neural</b> if layouts vary or documents are semi-/unstructured. <b>Classifier + composed model</b> if you receive multiple document types in one pipeline.</div>
     <div class="must-know"><b>Must know:</b> Custom <b>neural</b> models are recommended over custom <b>template</b> models for higher accuracy whenever both are supported for your language — template models are template/layout-sensitive; neural models generalize better across layout variance.</div>
+    <h3>Code: train &amp; analyze with a custom model (REST API)</h3>
+    <span class="lang-tag">REST</span>
+    <pre class="codeblock"><code>&#35; 1) Label 5+ sample documents in Document Intelligence Studio, store them
+&#35;    (with the generated ocr.json/labels.json/fields.json) in a blob container.
+
+&#35; 2) Kick off training against that container (SAS URL)
+POST {endpoint}/documentintelligence/documentModels:build?api-version=2024-11-30
+Content-Type: application/json
+Ocp-Apim-Subscription-Key: &lt;key&gt;
+
+{
+  "modelId": "custom-purchase-order-v1",
+  "buildMode": "neural",
+  "azureBlobSource": {
+    "containerUrl": "https://mystorage.blob.core.windows.net/training-data?&lt;SAS&gt;"
+  }
+}
+
+&#35; Poll Operation-Location header until status = "succeeded"
+
+&#35; 3) Analyze a new document with the trained custom model
+POST {endpoint}/documentintelligence/documentModels/custom-purchase-order-v1:analyze?api-version=2024-11-30
+Content-Type: application/json
+Ocp-Apim-Subscription-Key: &lt;key&gt;
+
+{ "urlSource": "https://example.com/po-12345.pdf" }
+
+&#35; Poll the returned Operation-Location, then read result.analyzeResult.documents[0].fields
+</code></pre>
+    <span class="lang-tag">Python</span>
+    <pre class="codeblock"><code>from azure.ai.documentintelligence.models import (
+    DocumentModelBuildOperationDetails, BuildDocumentModelRequest,
+    AzureBlobContentSource, DocumentBuildMode,
+)
+from azure.ai.documentintelligence import DocumentIntelligenceAdministrationClient
+
+admin_client = DocumentIntelligenceAdministrationClient(endpoint, AzureKeyCredential("&lt;key&gt;"))
+poller = admin_client.begin_build_document_model(
+    BuildDocumentModelRequest(
+        model_id="custom-purchase-order-v1",
+        build_mode=DocumentBuildMode.NEURAL,
+        azure_blob_source=AzureBlobContentSource(container_url="https://mystorage.blob.core.windows.net/training-data?&lt;SAS&gt;"),
+    )
+)
+model = poller.result()
+print("Trained model:", model.model_id, "fields:", list(model.doc_types[model.model_id].field_schema.keys()))
+</code></pre>
+    <div class="scenario"><b>Exam scenario:</b> A logistics company receives purchase orders from dozens of partners in inconsistent, semi-structured layouts, and needs to pull out a custom "ShipmentReference" field that no prebuilt model supports, alongside standard fields like totals and dates, with the highest possible accuracy. Which build mode and training approach fits best? <br><b>Answer:</b> A <b>custom neural</b> model (<code>buildMode: "neural"</code>) trained on 5+ labeled sample documents — neural models handle layout variance and overlapping/semi-structured fields better than custom template models, and can still extract both custom fields (ShipmentReference) and typed standard fields in one schema, avoiding the need for Microsoft to already support that exact document type.</div>
   </section>
 
   <section id="output">
@@ -211,6 +351,20 @@
       <tr><td>Field values need to come back already typed (dates, currency, addresses)</td><td>Prebuilt models (auto-typed) or custom models (you define the type per field)</td></tr>
     </table>
     <div class="must-know"><b>Top trap to avoid:</b> Don't confuse Document Intelligence (deterministic schema-based extraction) with Azure AI Content Understanding's LLM-powered analyzers (for complex/multimodal unstructured content) — the exam may ask you to pick the "right AI tool" between the two.</div>
+  </section>
+
+  <section id="handson">
+    <h2>9. Hands-On Patterns</h2>
+    <p>Quick checklist for lab/code-based exam questions — the shape of the calls matters more than memorizing every parameter:</p>
+    <ul>
+      <li><strong>Auth:</strong> every SDK/REST call needs an <code>endpoint</code> + either an <code>Ocp-Apim-Subscription-Key</code> header / <code>AzureKeyCredential</code>, or Microsoft Entra ID token credential (<code>DefaultAzureCredential</code>) for keyless auth.</li>
+      <li><strong>Async pattern:</strong> <code>analyze</code> calls are long-running operations — REST returns <code>202 Accepted</code> + <code>Operation-Location</code> header to poll; SDKs wrap this as <code>begin_analyze_document(...).result()</code> (a poller).</li>
+      <li><strong>Model ID selection</strong> is just a string: <code>prebuilt-read</code>, <code>prebuilt-layout</code>, <code>prebuilt-invoice</code>, <code>prebuilt-receipt</code>, <code>prebuilt-idDocument</code>, or your own <code>custom-*</code> model ID — the analyze call shape is identical regardless of model.</li>
+      <li><strong>Input source:</strong> pass either a local file stream (<code>body=open(...)</code>) or <code>{"urlSource": "https://..."}</code> — no need to download-then-upload if the file is already reachable by URL.</li>
+      <li><strong>Markdown vs JSON:</strong> add <code>output_content_format=DocumentContentFormat.MARKDOWN</code> (SDK) / <code>outputContentFormat=markdown</code> (REST) on Layout calls when the target consumer is an LLM/RAG pipeline rather than custom code parsing bounding boxes.</li>
+      <li><strong>Training data shape</strong> for custom models: a blob container with original files + Studio-generated <code>.ocr.json</code>/<code>.labels.json</code>/<code>fields.json</code> per document — referenced via SAS URL in the <code>build</code> call.</li>
+    </ul>
+    <div class="tip">For the exam, be ready to read a short code/REST snippet and identify: which model ID is used, whether it's prebuilt vs custom, and whether the output format (JSON fields vs Markdown) matches the stated downstream use case (business logic vs RAG/agent grounding).</div>
   </section>
 
 </div>

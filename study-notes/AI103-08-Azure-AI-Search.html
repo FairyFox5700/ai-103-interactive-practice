@@ -30,6 +30,11 @@
   li{margin-bottom:4px;}
   .keyword{background:#fffbdd;padding:1px 5px;border-radius:4px;font-weight:600;}
   code{background:#eef1f4;padding:2px 5px;border-radius:4px;font-size:13px;}
+  pre.codeblock{background:#1e1e1e;color:#d4d4d4;padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:12.5px;line-height:1.5;margin:10px 0;}
+  pre.codeblock code{background:none;color:inherit;padding:0;font-size:inherit;}
+  .lang-tag{display:inline-block;background:var(--accent);color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:2px 8px;border-radius:4px 4px 0 0;margin-bottom:-2px;}
+  .scenario{background:#fdf6e3;border:1px solid #e8d9a0;border-radius:8px;padding:14px 18px;margin:14px 0;font-size:13.5px;}
+  .scenario b{color:#8a6d00;}
   .must-know{background:#eafaf1;border:1px solid #b7e4c7;border-radius:8px;padding:10px 16px;margin-top:14px;font-size:13.5px;}
   .must-know b{color:#1e7e34;}
   footer{text-align:center;color:#888;font-size:12px;margin-top:50px;}
@@ -59,6 +64,7 @@
   <a href="#enrichment">7. AI Enrichment / Skillsets</a>
   <a href="#rag">8. RAG Ingestion &amp; Grounding Pipelines</a>
   <a href="#agents">9. Connecting to Agents (Foundry)</a>
+  <a href="#hands-on">10. Hands-On Patterns</a>
 </nav>
 
 <section id="overview">
@@ -135,6 +141,36 @@
   <h3>Scoring profiles</h3>
   <p>Optional, named boosting configurations attached to the index that let you weight certain fields (e.g., boost matches in <code>Title</code> over <code>Body</code>) or boost by freshness/distance/custom functions — applied to the text-relevance (BM25) portion of a query, not vectors.</p>
   <div class="must-know"><b>Must know:</b> a vector field can never be <code>filterable</code> itself — to filter vector search results you need a separate filterable scalar field in the same document (exam loves this trap).</div>
+  <h3>Worked example: index schema with a vector field</h3>
+  <p>REST body for <code>PUT /indexes/docs-index?api-version=2026-04-01</code> — a minimal hybrid-ready index combining text and vector fields, plus the <code>vectorSearch</code> config block that the vector field's <code>vectorSearchProfile</code> points to:</p>
+  <span class="lang-tag">JSON</span>
+  <pre class="codeblock"><code>{
+  "name": "docs-index",
+  "fields": [
+    { "name": "chunk_id", "type": "Edm.String", "key": true },
+    { "name": "title",    "type": "Edm.String", "searchable": true, "filterable": true },
+    { "name": "content",  "type": "Edm.String", "searchable": true },
+    { "name": "page",     "type": "Edm.Int32",  "filterable": true, "sortable": true },
+    {
+      "name": "contentVector",
+      "type": "Collection(Edm.Single)",
+      "dimensions": 1536,
+      "searchable": true,
+      "retrievable": false,
+      "vectorSearchProfile": "vector-profile"
+    }
+  ],
+  "vectorSearch": {
+    "algorithms": [
+      { "name": "hnsw-alg", "kind": "hnsw", "hnswParameters": { "m": 4, "efConstruction": 400, "metric": "cosine" } }
+    ],
+    "profiles": [
+      { "name": "vector-profile", "algorithm": "hnsw-alg" }
+    ]
+  }
+}
+</code></pre>
+  <div class="scenario"><b>Scenario:</b> An architect notices the <code>contentVector</code> field above is set <code>"retrievable": false</code>. A teammate asks why a 1536-dimension field was indexed at all if it can't be returned. <b>Answer:</b> vector fields participate in similarity scoring but their raw numbers are useless to end users — you mark them <code>retrievable:false</code> to shrink the response payload, while a paired text field (e.g. <code>content</code>) is returned as the human-readable proxy for what matched.</div>
 </section>
 
 <section id="vector">
@@ -169,6 +205,27 @@
   </ul>
   <div class="tip"><b>Tip:</b> A query can set <code>"exhaustive": true</code> per vector query to force exhaustive KNN even if the field was indexed with HNSW — useful when you need maximum recall for a specific query without rebuilding the index.</div>
   <div class="must-know"><b>Must know:</b> HNSW = fast approximate search, consumes memory/vector quota; Exhaustive KNN = exact but computationally expensive, no quota consumption. Know when the exam wants "best recall at scale" (HNSW) vs. "guaranteed exact top-k" (exhaustive KNN).</div>
+  <h3>Worked example: single-vector query (REST)</h3>
+  <span class="lang-tag">REST</span>
+  <pre class="codeblock"><code>POST https://&lt;service&gt;.search.windows.net/indexes/docs-index/docs/search?api-version=2026-04-01
+Content-Type: application/json
+api-key: &lt;admin-api-key&gt;
+
+{
+  "vectorQueries": [
+    {
+      "vector": [0.0123, -0.0456, 0.0789, "... 1536 floats total"],
+      "fields": "contentVector",
+      "kind": "vector",
+      "k": 10,
+      "exhaustive": false
+    }
+  ],
+  "select": "title, content, page",
+  "top": 10
+}
+</code></pre>
+  <div class="scenario"><b>Scenario:</b> A support-ticket search index holds 40M vectors and must answer queries in under 100ms at production scale, but a nightly batch job must also verify ANN recall against a perfectly accurate baseline. <b>Answer:</b> use the <b>HNSW</b> algorithm (default, in-memory graph) for the live production queries, and issue the batch-verification queries with <code>"exhaustive": true</code> on the vector query — this forces exact KNN for that one request without re-indexing or changing the field's configured algorithm.</div>
 </section>
 
 <section id="hybrid">
@@ -189,6 +246,53 @@
   </ul>
   <div class="tip"><b>Tip:</b> Both full-text and vector queries run against the <i>same</i> index — a hybrid-capable index simply contains both plain-text/numeric fields and vector fields side by side.</div>
   <div class="must-know"><b>Must know:</b> Hybrid search ranking = <b>RRF</b> (Reciprocal Rank Fusion), not a weighted average of scores. RRF merges rankings from BM25 (text) and HNSW/eKNN (vector) without needing the two different score scales to be comparable.</div>
+  <h3>Worked example: hybrid query (REST and Python)</h3>
+  <span class="lang-tag">REST</span>
+  <pre class="codeblock"><code>POST https://&lt;service&gt;.search.windows.net/indexes/docs-index/docs/search?api-version=2026-04-01
+Content-Type: application/json
+api-key: &lt;admin-api-key&gt;
+
+{
+  "search": "historic hotel walk to restaurants and shopping",
+  "vectorQueries": [
+    {
+      "vector": [-0.00915, 0.01871, "... remaining floats"],
+      "fields": "contentVector",
+      "kind": "vector",
+      "k": 50,
+      "exhaustive": false
+    }
+  ],
+  "queryType": "semantic",
+  "semanticConfiguration": "default-semantic-config",
+  "select": "title, content, page",
+  "top": 10
+}
+</code></pre>
+  <span class="lang-tag">Python</span>
+  <pre class="codeblock"><code>from azure.identity import DefaultAzureCredential
+from azure.search.documents import SearchClient
+from azure.search.documents.models import VectorizedQuery
+
+client = SearchClient(endpoint=endpoint, index_name="docs-index",
+                       credential=DefaultAzureCredential())
+
+vector_query = VectorizedQuery(vector=query_vector, k_nearest_neighbors=50,
+                                fields="contentVector")
+
+results = client.search(
+    search_text="historic hotel walk to restaurants and shopping",  # BM25 leg
+    vector_queries=[vector_query],                                   # vector leg
+    query_type="semantic",
+    semantic_configuration_name="default-semantic-config",
+    select=["title", "content", "page"],
+    top=10,
+)
+for r in results:
+    print(r["title"], r["@search.reranker_score"])
+</code></pre>
+  <div class="scenario"><b>Scenario:</b> A product-catalog search must match an exact SKU like <code>SKU-48213</code> typed by a warehouse worker, but also surface conceptually similar items when a shopper types "comfortable running shoes for flat feet." <b>Answer:</b> this is a textbook case for <b>hybrid search</b>, not pure vector search — the keyword/BM25 leg nails the exact SKU token match that an embedding could blur, while the vector leg captures the semantic "comfortable running shoes" intent; RRF merges both into one ranked list.</div>
+  <div class="scenario"><b>Scenario:</b> Query latency and relevance are both acceptable with hybrid search alone, but stakeholders want extractive answer snippets and better handling of natural-language questions ("What's the cancellation policy?"). <b>Answer:</b> add the <b>semantic ranker</b> on top of the existing hybrid query (<code>queryType: "semantic"</code> + a <code>semanticConfiguration</code>) rather than re-architecting retrieval — it reranks the top 50 hybrid results and can return semantic captions/answers, which is exactly the missing capability.</div>
 </section>
 
 <section id="semantic">
@@ -240,6 +344,44 @@
   </ol>
   <div class="tip"><b>Tip:</b> Enable the <b>enrichment cache</b> (preview) to persist skill outputs so that re-running a skillset after a schema tweak doesn't require (and re-bill) every skill from scratch — only changed skills rerun.</div>
   <div class="must-know"><b>Must know:</b> Custom skills plug into a skillset as an external HTTP call — the canonical AI-103 example is wrapping custom logic in an <b>Azure Function</b> that conforms to the custom skill request/response JSON contract.</div>
+  <h3>Worked example: chained skillset (OCR → Text Split → Embedding)</h3>
+  <p>A skillset is a top-level resource (<code>PUT /skillsets/my-skillset</code>) with a <code>skills</code> array. Each skill declares its <code>context</code> (where it runs) and <code>inputs</code>/<code>outputs</code> that wire it to the enrichment tree — the output of OCR becomes input to Text Split, whose output chunks become input to the Embedding skill:</p>
+  <span class="lang-tag">JSON</span>
+  <pre class="codeblock"><code>{
+  "name": "chunk-embed-skillset",
+  "skills": [
+    {
+      "@odata.type": "#Microsoft.Skills.Vision.OcrSkill",
+      "context": "/document/normalized_images/*",
+      "inputs": [ { "name": "image", "source": "/document/normalized_images/*" } ],
+      "outputs": [ { "name": "text", "targetName": "ocrText" } ]
+    },
+    {
+      "@odata.type": "#Microsoft.Skills.Text.SplitSkill",
+      "context": "/document",
+      "textSplitMode": "pages",
+      "maximumPageLength": 2000,
+      "pageOverlapLength": 200,
+      "inputs": [ { "name": "text", "source": "/document/content" } ],
+      "outputs": [ { "name": "textItems", "targetName": "chunks" } ]
+    },
+    {
+      "@odata.type": "#Microsoft.Skills.Text.AzureOpenAIEmbeddingSkill",
+      "context": "/document/chunks/*",
+      "resourceUri": "https://&lt;your-aoai&gt;.openai.azure.com",
+      "deploymentId": "text-embedding-3-small",
+      "modelName": "text-embedding-3-small",
+      "inputs": [ { "name": "text", "source": "/document/chunks/*" } ],
+      "outputs": [ { "name": "embedding", "targetName": "chunkVector" } ]
+    }
+  ],
+  "cognitiveServices": {
+    "@odata.type": "#Microsoft.Azure.Search.CognitiveServicesByKey",
+    "key": "&lt;foundry-resource-key&gt;"
+  }
+}
+</code></pre>
+  <div class="tip"><b>Tip:</b> Notice the <code>context</code> escalates from <code>/document/normalized_images/*</code> (once per image) to <code>/document</code> (once per document) to <code>/document/chunks/*</code> (once per chunk) — the embedding skill must run per-chunk so each chunk gets its own vector, not one vector for the whole document.</div>
 </section>
 
 <section id="rag">
@@ -289,6 +431,36 @@
     <li>Either way, the index is the grounding "source of truth" — citations in the agent's final answer trace back to specific indexed/retrieved documents and chunks.</li>
   </ul>
   <div class="must-know"><b>Must know:</b> The Foundry integration chain is <b>index (with vectorizer) → knowledge source → knowledge base → Foundry Agent Service</b>. The exam may ask which object you "parent" to which — knowledge sources are parented to knowledge bases, and knowledge bases connect to the agent.</div>
+  <div class="scenario"><b>Scenario:</b> A team already has a populated Azure AI Search index (text + vector fields, vectorizer configured) and wants a Foundry agent to answer employee questions by searching it, with minimal custom orchestration code. <b>Answer:</b> wrap the index as an <b>indexed knowledge source</b>, add it to a <b>knowledge base</b> with retrieval instructions, then connect that knowledge base to the agent in Foundry Agent Service — the agent calls agentic retrieval as a tool and gets back structured, cited results, with no hand-written query-planning code required.</div>
+</section>
+
+<section id="hands-on">
+  <h2>10. Hands-On Patterns — Full RAG Ingestion-to-Grounding Pipeline</h2>
+  <p>Putting Sections 2–9 together into one concrete, end-to-end flow you could be asked to sequence on the exam:</p>
+  <ol>
+    <li><b>Chunk</b> — Text Split skill breaks each cracked document into overlapping passages (e.g. <code>maximumPageLength: 2000</code>, <code>pageOverlapLength: 200</code>) sized for the embedding model's input limit.</li>
+    <li><b>Embed</b> — Azure OpenAI Embedding skill (or external/bring-your-own embeddings via the push API) converts each chunk into a <code>Collection(Edm.Single)</code> vector — this is integrated vectorization.</li>
+    <li><b>Index</b> — indexer writes each chunk + vector + metadata (source file, page, title) into a hybrid-ready index with an <code>hnsw</code> vector profile.</li>
+    <li><b>Query</b> — at request time, issue one hybrid query: <code>search</code> (BM25 text) + <code>vectorQueries</code> (ANN/HNSW) merged via RRF, optionally reranked with <code>queryType: "semantic"</code>.</li>
+    <li><b>Ground the LLM</b> — take the top-<i>n</i> returned chunks (after <code>select</code> trims to human-readable fields) and inject them into the LLM prompt (Azure OpenAI chat completion or a Foundry agent's tool-call result), so the model answers using your content with traceable citations back to <code>title</code>/<code>page</code>.</li>
+  </ol>
+  <span class="lang-tag">Python</span>
+  <pre class="codeblock"><code># Step 4+5 combined: retrieve, then ground an LLM call
+results = search_client.search(
+    search_text=user_question,
+    vector_queries=[VectorizedQuery(vector=embed(user_question),
+                                     k_nearest_neighbors=50, fields="contentVector")],
+    query_type="semantic", semantic_configuration_name="default-semantic-config",
+    select=["title", "content", "page"], top=5,
+)
+context = "\n\n".join(f"[{r['title']} p.{r['page']}] {r['content']}" for r in results)
+prompt = f"Answer using ONLY the context below. Cite [title p.N].\n\n{context}\n\nQ: {user_question}"
+response = openai_client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": prompt}],
+)
+</code></pre>
+  <div class="must-know"><b>Must know:</b> this chain — chunk → embed → index → hybrid+semantic query → ground — is the exam's reference RAG pipeline. Questions often give you a broken/partial pipeline (e.g., missing Text Split skill, or a vector-only query with no semantic ranker) and ask what's missing or misordered.</div>
 </section>
 
 <footer>

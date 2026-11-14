@@ -30,6 +30,11 @@
   li{margin-bottom:4px;}
   .keyword{background:#fffbdd;padding:1px 5px;border-radius:4px;font-weight:600;}
   code{background:#eef1f4;padding:2px 5px;border-radius:4px;font-size:13px;}
+  pre.codeblock{background:#1e1e1e;color:#d4d4d4;padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:12.5px;line-height:1.5;margin:10px 0;}
+  pre.codeblock code{background:none;color:inherit;padding:0;font-size:inherit;}
+  .lang-tag{display:inline-block;background:var(--accent);color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:2px 8px;border-radius:4px 4px 0 0;margin-bottom:-2px;}
+  .scenario{background:#fdf6e3;border:1px solid #e8d9a0;border-radius:8px;padding:14px 18px;margin:14px 0;font-size:13.5px;}
+  .scenario b{color:#8a6d00;}
   .must-know{background:#eafaf1;border:1px solid #b7e4c7;border-radius:8px;padding:10px 16px;margin-top:14px;font-size:13.5px;}
   .must-know b{color:#1e7e34;}
   footer{text-align:center;color:#888;font-size:12px;margin-top:50px;}
@@ -59,6 +64,7 @@
     <a href="#agents">6. Speech as an Agent Modality</a>
     <a href="#speaker">7. Speaker Recognition</a>
     <a href="#pricing">8. Resources, Regions &amp; Pricing</a>
+    <a href="#handson">9. Hands-On Patterns</a>
   </nav>
 
   <section id="overview">
@@ -104,6 +110,38 @@
     </table>
     <div class="tip">For the exam, remember the simple decision rule: <b>streaming/live input → real-time</b>; <b>single file, need result fast → fast transcription</b>; <b>large stored volumes, not time-sensitive → batch transcription</b>.</div>
     <div class="must-know"><b>Must know:</b> Real-time STT is the correct choice for conversational/agentic interactions (voice assistants, contact-center agent assist) because it streams interim results; batch transcription is asynchronous and unsuitable for live conversation.</div>
+
+    <h3>Code: single-shot recognition from a microphone or file (Python SDK)</h3>
+    <span class="lang-tag">Python</span>
+    <pre class="codeblock"><code>import os
+import azure.cognitiveservices.speech as speechsdk
+
+speech_config = speechsdk.SpeechConfig(
+    subscription=os.environ.get('SPEECH_KEY'),
+    region=os.environ.get('SPEECH_REGION'))
+speech_config.speech_recognition_language = "en-US"
+
+# Swap AudioConfig(use_default_microphone=True) for a live mic, or
+# AudioConfig(filename="YourAudioFile.wav") to recognize from a file.
+audio_config = speechsdk.audio.AudioConfig(use_default_microphone=True)
+speech_recognizer = speechsdk.SpeechRecognizer(
+    speech_config=speech_config, audio_config=audio_config)
+
+print("Speak into your microphone.")
+result = speech_recognizer.recognize_once_async().get()
+
+if result.reason == speechsdk.ResultReason.RecognizedSpeech:
+    print("Recognized: {}".format(result.text))
+elif result.reason == speechsdk.ResultReason.NoMatch:
+    print("No speech could be recognized: {}".format(result.no_match_details))
+elif result.reason == speechsdk.ResultReason.Canceled:
+    details = result.cancellation_details
+    print("Canceled: {}".format(details.reason))
+</code></pre>
+    <p><code>recognize_once_async()</code> is a single blocking call good for short utterances (≤ ~30s). For continuous/streaming scenarios, wire up <code>speech_recognizer.recognized.connect(...)</code> / <code>recognizing.connect(...)</code> event handlers and call <code>start_continuous_recognition()</code> instead — this event-driven pattern is what powers live captioning and voice-agent pipelines.</p>
+
+    <div class="scenario"><b>Exam scenario:</b> A media company has 50,000 hours of archived podcast audio sitting in Azure Blob Storage and wants searchable transcripts generated overnight, with no live user waiting on the result. <b>Answer:</b> use the <b>batch transcription</b> REST API (submit jobs referencing blob URLs, poll for completion) — not real-time STT (which needs an active stream) and not fast transcription (optimized for single-file low-latency turnaround, not bulk overnight jobs at this scale).</div>
+    <div class="scenario"><b>Exam scenario:</b> A hospital's voice-dictation app frequently mis-transcribes drug names and clinical abbreviations even though background noise and accents aren't an issue. <b>Answer:</b> Start with a <b>phrase list</b> (fast, no training) to bias recognition toward the known vocabulary; if accuracy is still insufficient, invest in a <b>Custom Speech</b> model trained with domain text data — you do <i>not</i> need Custom Neural Voice, since this is a recognition-accuracy problem, not a voice-synthesis problem.</div>
   </section>
 
   <section id="tts">
@@ -124,6 +162,53 @@
       <li>Multilingual voice switching (for multilingual neural voices)</li>
     </ul>
     <div class="tip">Example SSML skeleton: <code>&lt;speak version="1.0" xml:lang="en-US"&gt;&lt;voice name="en-US-AvaNeural"&gt;Hello, &lt;break time="300ms"/&gt; how can I help?&lt;/voice&gt;&lt;/speak&gt;</code></div>
+
+    <h3>Code: synthesize speech from text (Python SDK)</h3>
+    <span class="lang-tag">Python</span>
+    <pre class="codeblock"><code>import os
+import azure.cognitiveservices.speech as speechsdk
+
+speech_config = speechsdk.SpeechConfig(
+    subscription=os.environ.get('SPEECH_KEY'),
+    region=os.environ.get('SPEECH_REGION'))
+speech_config.speech_synthesis_voice_name = "en-US-AvaMultilingualNeural"
+
+audio_config = speechsdk.audio.AudioOutputConfig(use_default_speaker=True)
+speech_synthesizer = speechsdk.SpeechSynthesizer(
+    speech_config=speech_config, audio_config=audio_config)
+
+text = "Thanks for calling. Your ticket has been created."
+result = speech_synthesizer.speak_text_async(text).get()
+
+if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+    print("Speech synthesized for text [{}]".format(text))
+elif result.reason == speechsdk.ResultReason.Canceled:
+    cancellation_details = result.cancellation_details
+    print("Speech synthesis canceled: {}".format(cancellation_details.reason))
+</code></pre>
+    <p>To control pitch, pauses, or speaking style, swap <code>speak_text_async</code> for <code>speak_ssml_async(ssml_string)</code> and pass a full SSML document:</p>
+    <span class="lang-tag">SSML</span>
+    <pre class="codeblock"><code>&lt;speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"&gt;
+  &lt;voice name="en-US-AvaMultilingualNeural"&gt;
+    &lt;prosody rate="-10%" pitch="+5%"&gt;
+      Thanks for calling support.
+    &lt;/prosody&gt;
+    &lt;break time="300ms"/&gt;
+    &lt;mstts:express-as style="empathetic" xmlns:mstts="https://www.w3.org/2001/mstts"&gt;
+      I understand this is frustrating &mdash; let's get it fixed.
+    &lt;/mstts:express-as&gt;
+  &lt;/voice&gt;
+&lt;/speak&gt;
+</code></pre>
+    <h3>Code: synthesize via REST (no SDK install needed)</h3>
+    <span class="lang-tag">cURL</span>
+    <pre class="codeblock"><code>curl --location --request POST "https://&lt;region&gt;.tts.speech.microsoft.com/cognitiveservices/v1" ^
+--header "Ocp-Apim-Subscription-Key: &lt;key&gt;" ^
+--header "Content-Type: application/ssml+xml" ^
+--header "X-Microsoft-OutputFormat: audio-16khz-128kbitrate-mono-mp3" ^
+--header "User-Agent: curl" ^
+--data-raw "&lt;speak version='1.0' xml:lang='en-US'&gt;&lt;voice xml:lang='en-US' name='en-US-AvaNeural'&gt;my voice is my passport verify me&lt;/voice&gt;&lt;/speak&gt;" --output output.mp3
+</code></pre>
     <h3>Synthesis modes</h3>
     <ul>
       <li><b>Real-time speech synthesis</b> — via Speech SDK/REST, for interactive apps (chat/voice agents).</li>
@@ -184,6 +269,35 @@
       <li><b>Azure LLM Speech</b> (fast transcription enhanced mode) also exposes a built-in <code>translate</code> operation that converts pre-recorded audio directly into text in a target language — a middle ground between the two approaches for file-based (not real-time streaming) workloads.</li>
     </ul>
     <div class="must-know"><b>Must know:</b> Choose the dedicated Speech Translation API / Live Interpreter for low-latency, real-time speech-to-speech translation; choose an STT-then-LLM-translate pipeline when the agent needs additional reasoning, grounding, or orchestration beyond simple translation.</div>
+
+    <h3>Code: translate speech from a microphone (Python SDK)</h3>
+    <span class="lang-tag">Python</span>
+    <pre class="codeblock"><code>import os
+import azure.cognitiveservices.speech as speechsdk
+
+speech_translation_config = speechsdk.translation.SpeechTranslationConfig(
+    subscription=os.environ.get('SPEECH_KEY'),
+    endpoint=os.environ.get('ENDPOINT'))
+speech_translation_config.speech_recognition_language = "en-US"
+
+to_language = "it"
+speech_translation_config.add_target_language(to_language)
+
+audio_config = speechsdk.audio.AudioConfig(use_default_microphone=True)
+translation_recognizer = speechsdk.translation.TranslationRecognizer(
+    translation_config=speech_translation_config, audio_config=audio_config)
+
+print("Speak into your microphone.")
+result = translation_recognizer.recognize_once_async().get()
+
+if result.reason == speechsdk.ResultReason.TranslatedSpeech:
+    print("Recognized: {}".format(result.text))
+    print("Translated into '{}': {}".format(
+        to_language, result.translations[to_language]))
+elif result.reason == speechsdk.ResultReason.NoMatch:
+    print("No speech could be recognized: {}".format(result.no_match_details))
+</code></pre>
+    <p>Note the dedicated <code>speechsdk.translation.SpeechTranslationConfig</code> / <code>TranslationRecognizer</code> types — distinct from the plain <code>SpeechConfig</code>/<code>SpeechRecognizer</code> used for STT. <code>add_target_language()</code> can be called multiple times to translate one input stream into several languages in a single request. To also hear synthesized translated audio (speech-to-speech) rather than just translated text, attach a <code>synthesizing</code> event handler or set <code>voice_name</code> on the config.</p>
   </section>
 
   <section id="agents">
@@ -239,6 +353,17 @@
       </li>
     </ul>
     <div class="must-know"><b>Must know:</b> A single Speech/Foundry resource exposes STT, TTS, translation, and Voice Live together; always double-check regional availability before designing a solution around custom speech training, Voice Live model choice, or streaming-specific features, since not every capability ships in every region.</div>
+  </section>
+
+  <section id="handson">
+    <h2>9. Hands-On Patterns (Quick Reference)</h2>
+    <ul>
+      <li><b>Auth:</b> prefer Microsoft Entra ID / managed identity in production; API-key auth (<code>subscription=</code>) is fine for quickstarts/exam scenarios but must never be hard-coded in shipped code.</li>
+      <li><b>Config object maps to scenario:</b> <code>SpeechConfig</code> → STT/TTS, <code>speechsdk.translation.SpeechTranslationConfig</code> → translation. Picking the wrong config class is a common distractor on exam code-reading questions.</li>
+      <li><b>Single call vs. streaming:</b> <code>recognize_once_async()</code> / <code>speak_text_async()</code> for short, one-shot operations; <code>start_continuous_recognition()</code> with <code>recognized</code>/<code>recognizing</code> event handlers for live, multi-utterance streams.</li>
+      <li><b>Pick your target by mode:</b> REST (<code>cognitiveservices/v1</code>) is the simplest path for one-off TTS without installing the SDK; the Speech SDK is required for microphone input, continuous recognition, and translation.</li>
+      <li><b>Exam tell:</b> if a question's code sample shows <code>translations[to_language]</code> or <code>add_target_language</code>, it's testing Speech Translation, not plain STT — watch for this swap in distractor answers.</li>
+    </ul>
   </section>
 
 </div>

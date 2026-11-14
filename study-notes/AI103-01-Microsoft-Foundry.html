@@ -30,6 +30,11 @@
   li{margin-bottom:4px;}
   .keyword{background:#fffbdd;padding:1px 5px;border-radius:4px;font-weight:600;}
   code{background:#eef1f4;padding:2px 5px;border-radius:4px;font-size:13px;}
+  pre.codeblock{background:#1e1e1e;color:#d4d4d4;padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:12.5px;line-height:1.5;margin:10px 0;}
+  pre.codeblock code{background:none;color:inherit;padding:0;font-size:inherit;}
+  .lang-tag{display:inline-block;background:var(--accent);color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:2px 8px;border-radius:4px 4px 0 0;margin-bottom:-2px;}
+  .scenario{background:#fdf6e3;border:1px solid #e8d9a0;border-radius:8px;padding:14px 18px;margin:14px 0;font-size:13.5px;}
+  .scenario b{color:#8a6d00;}
   .must-know{background:#eafaf1;border:1px solid #b7e4c7;border-radius:8px;padding:10px 16px;margin-top:14px;font-size:13.5px;}
   .must-know b{color:#1e7e34;}
   footer{text-align:center;color:#888;font-size:12px;margin-top:50px;}
@@ -60,6 +65,7 @@
   <a href="#security">7. Networking, Quotas &amp; Monitoring</a>
   <a href="#responsible">8. Responsible AI &amp; Safety</a>
   <a href="#cicd">9. SDKs, CLI &amp; CI/CD</a>
+  <a href="#hands-on">10. Hands-On Patterns</a>
 </div>
 
 <section id="overview">
@@ -102,6 +108,24 @@
   <p>Prebuilt, task-specific APIs you compose alongside models: <strong>Azure AI Content Safety</strong>, <strong>Azure AI Search</strong> (vector/keyword/hybrid retrieval for grounding), <strong>Speech</strong>, <strong>Vision</strong>, <strong>Language</strong>, <strong>Content Understanding</strong>, Translator (Foundry-resource scope only).</p>
   <div class="tip">Tip: Choosing a model for the exam = match task → model type. Simple classification/low-latency → SLM. Multi-step agentic reasoning → reasoning model. Image+text grounding → multimodal. Need to search your own documents → pair any LLM with <strong>Azure AI Search</strong> for vector/RAG grounding, not a bigger model.</div>
   <div class="must-know"><b>Must know:</b> You are responsible for reviewing each model's model card, selecting an appropriate model for your use case, and layering <strong>Content Safety</strong> yourself — Microsoft's Responsible AI review of "sold by Azure" models does <em>not</em> guarantee risk mitigation for your specific application.</div>
+  <h3>Deploying a catalog model (CLI)</h3>
+  <p>From the catalog, a model becomes callable by creating a <strong>deployment</strong> on your Foundry resource. The Azure CLI is the fastest non-portal way to do this for scripted/repeatable setups:</p>
+  <span class="lang-tag">Azure CLI</span>
+  <pre class="codeblock"><code>az cognitiveservices account deployment create \
+  --name my-foundry-resource \
+  --resource-group rg-ai103-demo \
+  --deployment-name gpt-4o-mini \
+  --model-name gpt-4o-mini \
+  --model-version "2024-07-18" \
+  --model-format OpenAI \
+  --sku-capacity 10 \
+  --sku-name GlobalStandard</code></pre>
+  <p>List what is already deployed on the resource (useful before picking a <code>model=</code> value in SDK/REST calls):</p>
+  <span class="lang-tag">Azure CLI</span>
+  <pre class="codeblock"><code>az cognitiveservices account deployment list \
+  --name my-foundry-resource \
+  --resource-group rg-ai103-demo \
+  --output table</code></pre>
 </section>
 
 <section id="projects">
@@ -146,6 +170,36 @@
     <li><strong>Diagnostic logging:</strong> route to Log Analytics, Storage, or Event Hubs via Azure Monitor diagnostic settings.</li>
   </ul>
   <div class="must-know"><b>Must know:</b> Not every API is available at project scope — some (e.g., <strong>Translator</strong>) are available <em>only</em> at the Foundry resource level. Plan architecture based on which API scope your workload actually needs before assuming "project-level" covers everything.</div>
+  <h3>Provisioning as code (Bicep)</h3>
+  <p>For org-mandated naming/tags/policy, define the Foundry resource and project declaratively instead of using the quick-create portal flow:</p>
+  <span class="lang-tag">Bicep</span>
+  <pre class="codeblock"><code>resource foundry 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
+  name: 'my-foundry-resource'
+  location: resourceGroup().location
+  kind: 'AIServices'
+  sku: { name: 'S0' }
+  identity: { type: 'SystemAssigned' }
+  properties: {
+    customSubDomainName: 'my-foundry-resource'
+    publicNetworkAccess: 'Disabled'
+  }
+  tags: { costCenter: 'ai-103-demo' }
+}
+
+resource project 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = {
+  parent: foundry
+  name: 'my-project'
+  location: resourceGroup().location
+  identity: { type: 'SystemAssigned' }
+  properties: {
+    displayName: 'My Foundry Project'
+  }
+}</code></pre>
+  <span class="lang-tag">Azure CLI</span>
+  <pre class="codeblock"><code>az deployment group create \
+  --resource-group rg-ai103-demo \
+  --template-file foundry.bicep</code></pre>
+  <div class="scenario"><b>Scenario:</b> A regulated customer requires every Foundry deployment to be created only through reviewed templates, with mandatory tags and no public network access, across multiple subscriptions. <br><b>Answer:</b> Provision the Foundry resource and projects with <strong>ARM/Bicep templates</strong> (not the Foundry portal quick-create flow), setting <code>publicNetworkAccess: 'Disabled'</code> and required tags in the template, then enforce this via Azure Policy — the portal quick-create path does not support mandatory naming/tag/security policy enforcement.</div>
 </section>
 
 <section id="deployments">
@@ -163,6 +217,19 @@
   </table>
   <div class="tip">Tip: <strong>Standard deployment in Foundry resources is the preferred/default option</strong> whenever a model supports multiple deployment types — it has the widest capability set (keyless auth, custom content filters, all data-processing scopes).</div>
   <div class="must-know"><b>Must know:</b> Serverless API endpoints and managed compute are <strong>only available through AI Hub resources</strong> (classic model), not the new Foundry-resource-only path — and <strong>only Standard deployment</strong> supports keyless/Entra ID authentication and custom content filtering.</div>
+  <h3>Calling a Standard deployment keylessly (REST)</h3>
+  <p>Standard deployment is the only option supporting Entra ID bearer tokens instead of API keys — get a token with <code>az account get-access-token</code> and call the Responses API directly:</p>
+  <span class="lang-tag">REST / Bash</span>
+  <pre class="codeblock"><code>TOKEN=$(az account get-access-token --scope https://ai.azure.com/.default --query accessToken -o tsv)
+
+curl -X POST "https://my-foundry-resource.services.ai.azure.com/api/projects/my-project/openai/v1/responses" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+        "model": "gpt-4o-mini",
+        "input": "Summarize the AI-103 deployment options table in two sentences."
+      }'</code></pre>
+  <div class="scenario"><b>Scenario:</b> Your compliance team requires that application code never store or transmit a long-lived API key when calling a Foundry model. <br><b>Answer:</b> Use a <strong>Standard deployment</strong> and authenticate with <strong>Microsoft Entra ID</strong> (<code>DefaultAzureCredential</code> in the SDK, or a bearer token from <code>az account get-access-token</code> for REST) — serverless API endpoints and managed compute deployments do not support keyless auth, so Standard deployment is the only option that satisfies this requirement.</div>
 </section>
 
 <section id="agents">
@@ -193,6 +260,53 @@
   </ul>
   <div class="tip">Tip: Choosing an agent type on the exam = map requirement → type. "No code to maintain" → prompt agent. "Bring my own LangGraph/Agent Framework code" → hosted agent. "Phone/voice channel" → voice-based prompt agent. "Agent logic lives in my app, no Foundry resource to manage" → ephemeral agent via Responses API.</div>
   <div class="must-know"><b>Must know:</b> Hosted agents get an <strong>automatic, dedicated per-agent Microsoft Entra identity</strong>; prompt and voice-based prompt agents use Entra identity too but with no runtime code/container to manage at all — the exam may ask which type requires you to manage container compute (answer: hosted agents only).</div>
+  <h3>Creating a prompt agent and chatting with it (Python SDK)</h3>
+  <p>Uses <code>azure-ai-projects</code> (v2.x) against the Foundry projects API: create a project client, define the agent version, then drive a multi-turn <strong>conversation</strong> through the OpenAI-compatible client bound to that agent.</p>
+  <span class="lang-tag">Python</span>
+  <pre class="codeblock"><code>from azure.identity import DefaultAzureCredential
+from azure.ai.projects import AIProjectClient
+from azure.ai.projects.models import PromptAgentDefinition
+
+FOUNDRY_PROJECT_ENDPOINT = "https://my-foundry-resource.services.ai.azure.com/api/projects/my-project"
+FOUNDRY_AGENT_NAME = "support-agent"
+
+project = AIProjectClient(
+    endpoint=FOUNDRY_PROJECT_ENDPOINT,
+    credential=DefaultAzureCredential(),
+)
+
+# Create (or version) the agent
+project.agents.create_version(
+    agent_name=FOUNDRY_AGENT_NAME,
+    definition=PromptAgentDefinition(
+        model="gpt-4o-mini",
+        instructions="Answer only using the grounded knowledge base. Be concise.",
+    ),
+)
+
+# OpenAI-compatible client pre-bound to the agent
+openai = project.get_openai_client(agent_name=FOUNDRY_AGENT_NAME)
+
+conversation = openai.conversations.create()
+response = openai.responses.create(conversation=conversation.id, input="What is Foundry Agent Service?")
+print(response.output_text)
+
+follow_up = openai.responses.create(conversation=conversation.id, input="Which agent type needs no container management?")
+print(follow_up.output_text)</code></pre>
+  <h3>Creating an agent (REST)</h3>
+  <span class="lang-tag">REST / Bash</span>
+  <pre class="codeblock"><code>curl -X POST "https://my-foundry-resource.services.ai.azure.com/api/projects/my-project/agents?api-version=v1" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+        "name": "support-agent",
+        "definition": {
+          "kind": "prompt",
+          "model": "gpt-4o-mini",
+          "instructions": "Answer only using the grounded knowledge base."
+        }
+      }'</code></pre>
+  <div class="scenario"><b>Scenario:</b> A team wants a call-center bot that responds to spoken customer questions with the lowest possible audio latency, and does not want to manage any hosting infrastructure. <br><b>Answer:</b> Build a <strong>voice-based prompt agent</strong> using the native speech-to-speech (realtime) architecture — it is fully managed (no containers to run) and avoids the extra round-trip latency of the cascaded speech-to-text → text model → text-to-speech pattern.</div>
 </section>
 
 <section id="rbac">
@@ -220,6 +334,25 @@
     <li>For quota/usage visibility, assign <strong>Cognitive Services Usages Reader</strong> at subscription scope.</li>
   </ol>
   <div class="must-know"><b>Must know:</b> <strong>Key-based authentication bypasses RBAC entirely</strong> — a valid key grants full access with no role restriction. Microsoft Entra ID authentication is required to get granular, least-privilege access control. Also: don't use generic <strong>Cognitive Services</strong> roles or <strong>Azure AI Developer</strong> (scoped to AML workspaces/hubs) for Foundry project access — use the Foundry-specific roles instead.</div>
+  <h3>Assigning Foundry User to a project's managed identity (CLI)</h3>
+  <span class="lang-tag">Azure CLI</span>
+  <pre class="codeblock"><code># Get the system-assigned managed identity principal ID of the project
+PRINCIPAL_ID=$(az resource show \
+  --ids /subscriptions/&lt;sub-id&gt;/resourceGroups/rg-ai103-demo/providers/Microsoft.CognitiveServices/accounts/my-foundry-resource/projects/my-project \
+  --query identity.principalId -o tsv)
+
+# Grant Foundry User on the Foundry resource to that identity
+az role assignment create \
+  --assignee "$PRINCIPAL_ID" \
+  --role "Foundry User" \
+  --scope /subscriptions/&lt;sub-id&gt;/resourceGroups/rg-ai103-demo/providers/Microsoft.CognitiveServices/accounts/my-foundry-resource
+
+# Grant a human developer Foundry User at the same scope
+az role assignment create \
+  --assignee "dev@contoso.com" \
+  --role "Foundry User" \
+  --scope /subscriptions/&lt;sub-id&gt;/resourceGroups/rg-ai103-demo/providers/Microsoft.CognitiveServices/accounts/my-foundry-resource</code></pre>
+  <div class="scenario"><b>Scenario:</b> A CI/CD service principal must be able to build and test prompt agents in a dev project, but must never be able to publish agents to production or manage the Foundry resource itself. <br><b>Answer:</b> Assign the service principal the <strong>Foundry User</strong> role scoped to the dev project only — it grants data-plane build/test actions without publish rights (publishing requires <strong>Foundry Project Manager</strong> or higher) and without control-plane resource management rights, satisfying least privilege.</div>
 </section>
 
 <section id="security">
@@ -249,6 +382,36 @@
   </table>
   <div class="tip">Tip: When a scenario mentions "need to see cross-project usage and errors" → resource-level metrics. "Need to see how one team's agents perform" → project-level metrics.</div>
   <div class="must-know"><b>Must know:</b> Keyless/Entra ID auth, custom content filtering, and all three data-processing scopes (regional/data-zone/global) are available <strong>only</strong> with <strong>Standard deployment in a Foundry resource</strong> — this is a common "which deployment option supports X" trap.</div>
+  <h3>Locking down networking (Bicep)</h3>
+  <span class="lang-tag">Bicep</span>
+  <pre class="codeblock"><code>resource foundryNetworking 'Microsoft.CognitiveServices/accounts@2025-06-01' existing = {
+  name: 'my-foundry-resource'
+}
+
+resource privateEndpoint 'Microsoft.Network/privateEndpoints@2023-11-01' = {
+  name: 'pe-my-foundry-resource'
+  location: resourceGroup().location
+  properties: {
+    subnet: { id: subnetId }
+    privateLinkServiceConnections: [
+      {
+        name: 'pe-connection'
+        properties: {
+          privateLinkServiceId: foundryNetworking.id
+          groupIds: [ 'account' ]
+        }
+      }
+    ]
+  }
+}</code></pre>
+  <h3>Routing diagnostics to Log Analytics (CLI)</h3>
+  <span class="lang-tag">Azure CLI</span>
+  <pre class="codeblock"><code>az monitor diagnostic-settings create \
+  --name foundry-diagnostics \
+  --resource /subscriptions/&lt;sub-id&gt;/resourceGroups/rg-ai103-demo/providers/Microsoft.CognitiveServices/accounts/my-foundry-resource \
+  --workspace /subscriptions/&lt;sub-id&gt;/resourceGroups/rg-ai103-demo/providers/Microsoft.OperationalInsights/workspaces/law-ai103 \
+  --logs '[{"category":"Audit","enabled":true},{"category":"RequestResponse","enabled":true}]' \
+  --metrics '[{"category":"AllMetrics","enabled":true}]'</code></pre>
 </section>
 
 <section id="responsible">
@@ -274,6 +437,32 @@
   </ul>
   <div class="tip">Tip: When a question describes "ensuring an agent's model outputs are safe before rollout" think <strong>safety evaluators</strong>; when it describes "blocking harmful content at inference time" think <strong>content filters</strong>; when it describes "understanding why an agent made a decision after the fact" think <strong>tracing/observability</strong>.</div>
   <div class="must-know"><b>Must know:</b> Content filtering is <strong>not available at all</strong> on <strong>managed compute</strong> deployments — if a scenario requires content safety guardrails, managed compute is the wrong deployment choice.</div>
+  <h3>Applying a custom content filter to a Standard deployment (REST)</h3>
+  <span class="lang-tag">REST / Bash</span>
+  <pre class="codeblock"><code>curl -X PATCH "https://management.azure.com/subscriptions/&lt;sub-id&gt;/resourceGroups/rg-ai103-demo/providers/Microsoft.CognitiveServices/accounts/my-foundry-resource/deployments/gpt-4o-mini?api-version=2025-06-01" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "properties": {
+          "raiPolicyName": "contoso-strict-filter"
+        }
+      }'</code></pre>
+  <h3>Running a safety evaluator before rollout (Python)</h3>
+  <span class="lang-tag">Python</span>
+  <pre class="codeblock"><code>from azure.ai.evaluation import evaluate, ViolenceEvaluator, GroundednessEvaluator
+from azure.identity import DefaultAzureCredential
+
+model_config = {"azure_endpoint": "https://my-foundry-resource.services.ai.azure.com", "azure_deployment": "gpt-4o-mini"}
+
+result = evaluate(
+    data="eval_dataset.jsonl",
+    evaluators={
+        "violence": ViolenceEvaluator(credential=DefaultAzureCredential(), azure_ai_project=FOUNDRY_PROJECT_ENDPOINT),
+        "groundedness": GroundednessEvaluator(model_config=model_config),
+    },
+)
+print(result["metrics"])</code></pre>
+  <div class="scenario"><b>Scenario:</b> Before promoting a new agent version to production, the team must confirm its answers stay grounded in the retrieved documents and don't introduce unsafe content, and they want this check automated in the release pipeline. <br><b>Answer:</b> Add a <strong>safety/groundedness evaluation</strong> step (e.g., <code>GroundednessEvaluator</code>, built-in safety evaluators) to the CI/CD pipeline that runs against a representative evaluation dataset before the agent version is published — this is distinct from runtime content filters, which block harmful output live rather than validating quality/groundedness pre-release.</div>
 </section>
 
 <section id="cicd">
@@ -296,6 +485,116 @@
   </ul>
   <div class="tip">Tip: "Portal-first" prototyping → "Code-first" productionization is the expected maturity path Microsoft documents for prompt agents — expect a scenario question on moving from manual portal configuration to pipeline-driven deployment.</div>
   <div class="must-know"><b>Must know:</b> Only <strong>Foundry Project Manager</strong> (or higher) can <strong>publish agents</strong> — <strong>Foundry User</strong> can build/test but not publish, a frequent "least privilege for CI/CD service principal" exam trap.</div>
+  <h3>Promoting an agent version in a pipeline (azd + GitHub Actions)</h3>
+  <span class="lang-tag">YAML</span>
+  <pre class="codeblock"><code>name: deploy-agent
+on:
+  push:
+    branches: [ main ]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Provision Foundry infra
+        run: azd provision --no-prompt
+      - name: Publish agent version
+        run: |
+          python scripts/create_agent_version.py \
+            --project-endpoint ${{ secrets.FOUNDRY_PROJECT_ENDPOINT }} \
+            --agent-name support-agent \
+            --model gpt-4o-mini</code></pre>
+  <p>The service principal behind <code>AZURE_CLIENT_ID</code> should be granted <strong>Foundry Project Manager</strong> (to publish) only on the target project — not broader account-level roles.</p>
+</section>
+
+<section id="hands-on">
+  <h2>Hands-On Patterns</h2>
+  <p>Worked examples that tie the model catalog, Agent Service, tools, and governance concepts above into one end-to-end flow.</p>
+  <h3>Pattern 1 — Full agent + tool registration + run polling (Python)</h3>
+  <p>Registers a function tool, lets the agent decide to call it, and polls the response until complete — the pattern behind most "agent calls a custom function" exam scenarios.</p>
+  <span class="lang-tag">Python</span>
+  <pre class="codeblock"><code>from azure.identity import DefaultAzureCredential
+from azure.ai.projects import AIProjectClient
+from azure.ai.projects.models import PromptAgentDefinition, FunctionTool
+
+FOUNDRY_PROJECT_ENDPOINT = "https://my-foundry-resource.services.ai.azure.com/api/projects/my-project"
+
+project = AIProjectClient(endpoint=FOUNDRY_PROJECT_ENDPOINT, credential=DefaultAzureCredential())
+
+def get_order_status(order_id: str) -> str:
+    """Looks up an order status from the fulfillment system."""
+    return f"Order {order_id} shipped on 2026-11-10."
+
+order_tool = FunctionTool(functions={get_order_status})
+
+agent = project.agents.create_version(
+    agent_name="order-support-agent",
+    definition=PromptAgentDefinition(
+        model="gpt-4o-mini",
+        instructions="Help customers check order status. Use the get_order_status tool when an order ID is given.",
+        tools=order_tool.definitions,
+    ),
+)
+
+openai = project.get_openai_client(agent_name="order-support-agent")
+conversation = openai.conversations.create()
+
+response = openai.responses.create(conversation=conversation.id, input="Where is order 48213?")
+
+# Resolve any pending tool calls, then poll until the run has a final answer
+while response.status in ("queued", "in_progress", "requires_action"):
+    if response.status == "requires_action":
+        outputs = order_tool.execute(response.required_action)
+        response = openai.responses.submit_tool_outputs(response_id=response.id, tool_outputs=outputs)
+    else:
+        response = openai.responses.retrieve(response.id)
+
+print(response.output_text)</code></pre>
+
+  <h3>Pattern 2 — Keyless REST flow: deploy, then call (CLI + Bash)</h3>
+  <p>Combines IaC-free provisioning with a keyless runtime call — useful for quick scripted smoke tests of a new deployment.</p>
+  <span class="lang-tag">REST / Bash</span>
+  <pre class="codeblock"><code># 1. Deploy the model
+az cognitiveservices account deployment create \
+  --name my-foundry-resource --resource-group rg-ai103-demo \
+  --deployment-name gpt-4o-mini --model-name gpt-4o-mini \
+  --model-version "2024-07-18" --model-format OpenAI \
+  --sku-capacity 10 --sku-name GlobalStandard
+
+# 2. Get a keyless bearer token (no API key stored anywhere)
+TOKEN=$(az account get-access-token --scope https://ai.azure.com/.default --query accessToken -o tsv)
+
+# 3. Smoke-test the new deployment
+curl -s -X POST "https://my-foundry-resource.services.ai.azure.com/api/projects/my-project/openai/v1/responses" \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+  -d '{"model":"gpt-4o-mini","input":"Reply with OK if you can read this."}' | jq .output_text</code></pre>
+
+  <h3>Pattern 3 — Governed provisioning: Bicep + least-privilege RBAC in one script</h3>
+  <p>Ties infrastructure-as-code (section 3/7) to RBAC (section 6) so a new project is both compliant and immediately usable by its own managed identity.</p>
+  <span class="lang-tag">Azure CLI</span>
+  <pre class="codeblock"><code># Deploy the Bicep template from section 3 (Foundry resource + project)
+az deployment group create --resource-group rg-ai103-demo --template-file foundry.bicep
+
+# Grant the new project's managed identity least-privilege access to itself
+PRINCIPAL_ID=$(az resource show \
+  --ids /subscriptions/&lt;sub-id&gt;/resourceGroups/rg-ai103-demo/providers/Microsoft.CognitiveServices/accounts/my-foundry-resource/projects/my-project \
+  --query identity.principalId -o tsv)
+
+az role assignment create \
+  --assignee "$PRINCIPAL_ID" --role "Foundry User" \
+  --scope /subscriptions/&lt;sub-id&gt;/resourceGroups/rg-ai103-demo/providers/Microsoft.CognitiveServices/accounts/my-foundry-resource
+
+# Enable diagnostics so the new project is observable from day one
+az monitor diagnostic-settings create --name foundry-diagnostics \
+  --resource /subscriptions/&lt;sub-id&gt;/resourceGroups/rg-ai103-demo/providers/Microsoft.CognitiveServices/accounts/my-foundry-resource \
+  --workspace /subscriptions/&lt;sub-id&gt;/resourceGroups/rg-ai103-demo/providers/Microsoft.OperationalInsights/workspaces/law-ai103 \
+  --logs '[{"category":"Audit","enabled":true}]' --metrics '[{"category":"AllMetrics","enabled":true}]'</code></pre>
+  <div class="tip">Tip: Notice the repeating shape across all three patterns — <strong>provision → identity/RBAC → call keylessly → observe</strong>. Most AI-103 scenario questions are really asking you to identify which step of this shape is missing or misconfigured.</div>
 </section>
 
 <footer>
