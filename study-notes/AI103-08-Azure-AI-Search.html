@@ -65,6 +65,7 @@
   <a href="#rag">8. RAG Ingestion &amp; Grounding Pipelines</a>
   <a href="#agents">9. Connecting to Agents (Foundry)</a>
   <a href="#hands-on">10. Hands-On Patterns</a>
+  <a href="#best-practices">11. Templates &amp; Best Practices</a>
 </nav>
 
 <section id="overview">
@@ -461,6 +462,130 @@ response = openai_client.chat.completions.create(
 )
 </code></pre>
   <div class="must-know"><b>Must know:</b> this chain — chunk → embed → index → hybrid+semantic query → ground — is the exam's reference RAG pipeline. Questions often give you a broken/partial pipeline (e.g., missing Text Split skill, or a vector-only query with no semantic ranker) and ask what's missing or misordered.</div>
+</section>
+
+<section id="best-practices">
+  <h2>11. Templates &amp; Best Practices</h2>
+  <p>Production-grade checklist and reusable templates for index design, chunking, relevance tuning, security, and capacity — the areas most "which configuration should you choose" exam questions probe.</p>
+
+  <h3>11.1 Index design — selective field attribution</h3>
+  <p>The single most common index-design mistake: marking every field as <code>searchable</code>, <code>filterable</code>, <code>sortable</code>, and <code>facetable</code> "just in case."</p>
+  <ul>
+    <li><b>Only set the attributes you actually query.</b> Each attribute adds a separate storage structure — <code>filterable</code>/<code>sortable</code> store raw non-analyzed copies; <code>facetable</code> builds a value list; <code>searchable</code> builds the inverted index.</li>
+    <li>Over-attribution can <b>quadruple storage</b> and slow both indexing and query scanning, since every <code>searchable</code> field is scanned on a full-text query.</li>
+    <li>A field that is <code>facetable</code> + <code>filterable</code> + <code>searchable</code> simultaneously is capped at <b>16 KB</b> of text; a plain <code>searchable</code> field can hold up to <b>16 MB</b>.</li>
+    <li>Periodically revisit schema + document size as the index grows — smaller indexes query faster because more of them stays cached in memory.</li>
+  </ul>
+  <span class="lang-tag">JSON</span>
+  <pre class="codeblock"><code>{
+  "name": "docs-index",
+  "fields": [
+    { "name": "id", "type": "Edm.String", "key": true },
+    { "name": "title", "type": "Edm.String", "searchable": true, "sortable": true },
+    { "name": "content", "type": "Edm.String", "searchable": true },
+    { "name": "contentVector", "type": "Collection(Edm.Single)", "dimensions": 1536,
+      "vectorSearchProfile": "vector-profile", "searchable": true, "retrievable": false },
+    { "name": "category", "type": "Edm.String", "filterable": true, "facetable": true },
+    { "name": "publishedDate", "type": "Edm.DateTimeOffset", "filterable": true, "sortable": true }
+    // NOT filterable/facetable/sortable: "content" — it's long free text, never filtered on
+  ]
+}
+</code></pre>
+  <div class="scenario"><b>Scenario:</b> An index has grown slow on both indexing and query latency. Review shows every field — including a 10,000-character "content" field — is marked searchable, filterable, facetable, and sortable. <br><b>Answer:</b> Remove filterable/facetable/sortable from the long free-text field (keep only searchable), since those attributes were never queried for that field; this directly cuts storage and scan cost without losing functionality.</div>
+
+  <h3>11.2 Chunking strategy template</h3>
+  <p>Chunking exists to stay under model input token limits (e.g., <code>text-embedding-3-small</code> caps at 8,191 tokens / ~6,000 words) and to avoid diluting a single vector with too many unrelated topics.</p>
+  <table>
+    <tr><th>Technique</th><th>When to use</th><th>Built-in tool</th></tr>
+    <tr><td>Fixed-size chunks</td><td>General-purpose default; predictable size for embeddings</td><td>Text Split skill (<code>pageLength</code>/<code>maximumPageLength</code>)</td></tr>
+    <tr><td>Variable-size (sentence/markup aware)</td><td>HTML/Markdown with real heading structure</td><td>Content Understanding skill, or Text Split "sentences" mode</td></tr>
+    <tr><td>Semantic chunks</td><td>Preserve meaning across paragraph/page boundaries</td><td>Content Understanding skill (semantic chunking, markdown output)</td></tr>
+    <tr><td>Document parsing (one-to-many)</td><td>Source naturally splits into sub-documents (e.g. book → chapters)</td><td>One-to-many indexing / Markdown-blob indexing</td></tr>
+  </table>
+  <div class="tip"><b>Starting-point rule of thumb (memorize for the exam):</b> chunk size <b>≈512 tokens (~2,000 characters)</b> with <b>~25% overlap (~128 tokens)</b> — large enough to preserve context, small enough to stay well under embedding/LLM input limits, with overlap preventing hard cuts mid-sentence from losing meaning at chunk boundaries.</div>
+  <span class="lang-tag">JSON (skillset fragment)</span>
+  <pre class="codeblock"><code>{
+  "@odata.type": "#Microsoft.Skills.Text.SplitSkill",
+  "textSplitMode": "pages",
+  "maximumPageLength": 2000,
+  "pageOverlapLength": 500,
+  "unit": "characters",
+  "inputs": [{ "name": "text", "source": "/document/content" }],
+  "outputs": [{ "name": "textItems", "targetName": "chunks" }]
+}
+</code></pre>
+  <div class="scenario"><b>Scenario:</b> Embeddings are being generated per-page for long legal contracts, and retrieval quality is poor because key clauses get split across adjacent pages with no shared context. <br><b>Answer:</b> Add page overlap (e.g. 25% of chunk length) in the Text Split skill, or move to semantic/variable chunking that respects clause/section boundaries, instead of hard fixed-size splits with zero overlap.</div>
+
+  <h3>11.3 Scoring profile template (relevance tuning)</h3>
+  <p>Scoring profiles boost/suppress document ranking using your own business rules — they do <b>not</b> require an index rebuild and can be added/edited/deleted live.</p>
+  <ul>
+    <li><b>Weighted text fields</b> — matches in <code>title</code> count more than matches in <code>body</code>.</li>
+    <li><b>Freshness function</b> — boosts more recent <code>Edm.DateTimeOffset</code> values.</li>
+    <li><b>Distance function</b> — boosts documents closer to a supplied geo-point.</li>
+    <li><b>Magnitude/range function</b> — boosts based on a numeric field falling in/near a target range (e.g. price, rating).</li>
+    <li><b>Tag function</b> — boosts if any value in a string collection matches the query's tag list.</li>
+  </ul>
+  <span class="lang-tag">JSON</span>
+  <pre class="codeblock"><code>{
+  "name": "boost-recent-and-title",
+  "text": { "weights": { "title": 3, "content": 1 } },
+  "functions": [
+    {
+      "type": "freshness",
+      "fieldName": "publishedDate",
+      "boost": 5,
+      "interpolation": "linear",
+      "freshness": { "boostingDuration": "P90D" }
+    }
+  ],
+  "functionAggregation": "sum"
+}
+</code></pre>
+  <div class="scenario"><b>Scenario:</b> A news-search index must rank recently published articles higher, and matches found in the headline should count more than matches in the article body. <br><b>Answer:</b> Create a scoring profile combining a <code>text.weights</code> boost on the title field with a <code>freshness</code> function on the publish-date field — no index rebuild required, and it can be applied selectively per query via <code>scoringProfile=</code>.</div>
+
+  <h3>11.4 Security best practices</h3>
+  <table>
+    <tr><th>Control</th><th>Recommendation</th></tr>
+    <tr><td>Authentication</td><td>Prefer <b>Microsoft Entra ID / RBAC</b> over API keys; disable local (key-based) auth once RBAC is verified working for all clients.</td></tr>
+    <tr><td>Built-in roles</td><td><b>Search Service Contributor</b> (manage the service/objects, no data read/write), <b>Search Index Data Contributor</b> (read/write documents), <b>Search Index Data Reader</b> (query/read documents only) — assign the narrowest role per principal/agent.</td></tr>
+    <tr><td>Network isolation</td><td>Use a <b>private endpoint</b> (Azure Private Link) to remove public network exposure; combine with firewall IP rules for defense in depth during transition.</td></tr>
+    <tr><td>Document-level security</td><td>Use row-level / document-level access control (security filters or Microsoft Entra group-based filters) when different users must see different subsets of the same index.</td></tr>
+    <tr><td>Transport</td><td>TLS 1.2/1.3 is enforced automatically by the service — no customer action required, but client code must support it.</td></tr>
+    <tr><td>Encryption at rest</td><td>AES-256 service-managed by default; add <b>customer-managed keys (CMK)</b> via Key Vault if compliance requires control over the encryption key.</td></tr>
+  </table>
+  <span class="lang-tag">Azure CLI</span>
+  <pre class="codeblock"><code># Assign the narrowest role: query-only access for a Foundry agent's managed identity
+az role assignment create \
+  --assignee &lt;agent-managed-identity-object-id&gt; \
+  --role "Search Index Data Reader" \
+  --scope "/subscriptions/&lt;sub-id&gt;/resourceGroups/&lt;rg&gt;/providers/Microsoft.Search/searchServices/&lt;search-service&gt;"
+</code></pre>
+  <div class="scenario"><b>Scenario:</b> A Foundry agent only needs to run queries against an index; it must never be able to create, delete, or rebuild indexes. <br><b>Answer:</b> Assign the agent's managed identity the <b>Search Index Data Reader</b> role scoped to the search service (not Search Service Contributor, which manages the service/schema but has no document data access by itself, and not Search Index Data Contributor, which also allows writes).</div>
+
+  <h3>11.5 Capacity planning &amp; performance</h3>
+  <table>
+    <tr><th>Model</th><th>How it works</th><th>Best for</th></tr>
+    <tr><td><b>Dedicated</b></td><td>Pre-provision replicas (throughput/HA) × partitions (storage); billed hourly in Search Units regardless of usage</td><td>Predictable, steady workloads</td></tr>
+    <tr><td><b>Serverless (preview)</b></td><td>Auto-scales with demand, can scale to zero when idle; billed by Compute Units + storage actually used</td><td>Bursty, variable, or multi-tenant/agent-driven workloads</td></tr>
+  </table>
+  <ul>
+    <li><b>Replicas</b> increase query throughput and high availability (query/indexing load spread across replicas).</li>
+    <li><b>Partitions</b> increase storage capacity and indexing throughput (data sharded across partitions).</li>
+    <li>Scale up (bigger tier, e.g. move to S2) vs. scale out (more replicas/partitions) is a classic trade-off: scale out first for query concurrency, scale up when a single index/document is simply too large or complex for the current tier's per-partition limits.</li>
+  </ul>
+  <div class="must-know"><b>Must know:</b> replicas = <i>availability &amp; query throughput</i>; partitions = <i>storage &amp; indexing throughput</i>. If an exam scenario describes slow <i>query</i> response under concurrent load, the fix is usually "add replicas"; if it describes running out of <i>storage</i> or slow bulk indexing, the fix is usually "add partitions."</div>
+
+  <h3>11.6 Production RAG index checklist</h3>
+  <ul>
+    <li>☐ Field attributes minimized to only what's queried (search/filter/sort/facet as needed, nothing extra)</li>
+    <li>☐ Chunking: ~512 tokens / ~25% overlap starting point, tuned per content type</li>
+    <li>☐ Vector field uses an appropriate HNSW profile with matching embedding model dimensions</li>
+    <li>☐ Hybrid query (BM25 + vector via RRF) enabled, with semantic ranker layered on top for re-ranking</li>
+    <li>☐ At least one scoring profile if business rules (freshness, authority, category) should influence ranking</li>
+    <li>☐ Microsoft Entra ID / RBAC enabled; key-based auth disabled once verified; narrowest role assigned per caller</li>
+    <li>☐ Private endpoint configured if the index holds non-public/internal content</li>
+    <li>☐ Capacity model chosen deliberately: Dedicated for steady load, Serverless for bursty/agent-driven load</li>
+  </ul>
 </section>
 
 <footer>
