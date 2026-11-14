@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI-103 Study Notes: Azure AI Content Safety & Azure AI Translator</title>
+<style>
+  :root{
+    --accent:#0078D4; --accent-dark:#004578; --bg:#f5f7fa; --card:#ffffff;
+    --warn-bg:#fff4e5; --warn-border:#e67e22; --tip-bg:#e8f4fd; --tip-border:#0078D4;
+  }
+  body{font-family:'Segoe UI',Calibri,Arial,sans-serif;background:var(--bg);color:#222;margin:0;padding:0;line-height:1.55;}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 24px 80px;}
+  header.hero{background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;padding:36px 24px;border-radius:0 0 16px 16px;}
+  header.hero h1{margin:0 0 8px;font-size:26px;}
+  header.hero p{margin:0;opacity:.9;font-size:14px;}
+  .badge{display:inline-block;background:rgba(255,255,255,.2);padding:4px 10px;border-radius:12px;font-size:12px;margin-top:10px;margin-right:6px;}
+  .section-nav{background:var(--card);border-radius:10px;padding:16px 22px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin:20px 0;font-size:14px;}
+  .section-nav a{color:var(--accent-dark);text-decoration:none;display:inline-block;margin:3px 10px 3px 0;}
+  .section-nav a:hover{text-decoration:underline;}
+  section{background:var(--card);border-radius:10px;padding:22px 26px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin:22px 0;}
+  section h2{color:var(--accent-dark);border-bottom:2px solid var(--accent);padding-bottom:6px;margin-top:0;font-size:21px;}
+  h3{color:var(--accent-dark);margin-top:22px;font-size:16px;}
+  .retire{background:var(--warn-bg);border-left:5px solid var(--warn-border);padding:14px 18px;border-radius:6px;margin:14px 0;font-size:14px;}
+  .tip{background:var(--tip-bg);border-left:5px solid var(--tip-border);padding:12px 16px;border-radius:6px;margin:12px 0;font-size:13.5px;}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;}
+  th,td{border:1px solid #d8dee4;padding:7px 9px;text-align:left;}
+  th{background:var(--accent);color:#fff;}
+  tr:nth-child(even){background:#f0f4f8;}
+  ul,ol{margin:8px 0;padding-left:22px;}
+  li{margin-bottom:4px;}
+  .keyword{background:#fffbdd;padding:1px 5px;border-radius:4px;font-weight:600;}
+  code{background:#eef1f4;padding:2px 5px;border-radius:4px;font-size:13px;}
+  .must-know{background:#eafaf1;border:1px solid #b7e4c7;border-radius:8px;padding:10px 16px;margin-top:14px;font-size:13.5px;}
+  .must-know b{color:#1e7e34;}
+  footer{text-align:center;color:#888;font-size:12px;margin-top:50px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>AI-103: Developing AI Apps and Agents on Azure</h1>
+  <p>Study Notes — Module 10: Azure AI Content Safety &amp; Azure AI Translator</p>
+  <span class="badge">Responsible AI / Guardrails</span>
+  <span class="badge">Language Text Analysis</span>
+  <span class="badge">Foundry Tools</span>
+</header>
+
+<div class="section-nav">
+  <strong>Jump to:</strong><br>
+  <strong>Content Safety —</strong>
+  <a href="#cs-overview">Overview &amp; Access Points</a>
+  <a href="#cs-harm">Harm Categories &amp; Severity</a>
+  <a href="#cs-apis">Text vs. Image Moderation APIs</a>
+  <a href="#cs-promptshields">Prompt Shields (Jailbreak &amp; Document Attacks)</a>
+  <a href="#cs-ground">Groundedness &amp; Protected Material</a>
+  <a href="#cs-custom">Custom Categories &amp; Blocklists</a>
+  <a href="#cs-foundry">Content Safety vs. Azure OpenAI/Foundry Filters</a>
+  <br><strong>Translator —</strong>
+  <a href="#tr-overview">Overview &amp; Service Family</a>
+  <a href="#tr-text">Text Translation API</a>
+  <a href="#tr-doc">Document Translation</a>
+  <a href="#tr-custom">Custom Translator &amp; Adaptive Custom Translation</a>
+  <a href="#tr-vs-llm">Translator vs. LLM/Foundry Translation</a>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 1: AZURE AI CONTENT SAFETY                            -->
+<!-- ============================================================ -->
+
+<section id="cs-overview">
+  <h2>1. Azure AI Content Safety — Overview &amp; Access Points</h2>
+  <p>Azure AI Content Safety is the AI service that powers <span class="keyword">guardrails</span> — safety and security controls that detect harmful user- and AI-generated content across models, agents, and services. A guardrail control specifies <em>what risk to detect</em>, <em>where to scan for it</em> (input/output/tool response), and <em>how the system should respond</em> when found.</p>
+
+  <h3>Two ways to use it</h3>
+  <table>
+    <tr><th>Access point</th><th>When to use</th></tr>
+    <tr><td><strong>Guardrails in Microsoft Foundry</strong></td><td>Your models/agents are hosted in Foundry; you want built-in moderation during model/agent calls; first 1,000 text characters are moderated free.</td></tr>
+    <tr><td><strong>Azure AI Content Safety Studio / standalone APIs</strong></td><td>Models/agents run outside Foundry or span multiple platforms; you need a consistent guardrail experience everywhere; you need moderation on all characters (standard Content Safety pricing applies); you need moderation beyond model/agent calls (e.g., user-generated content, marketplaces, chat).</td></tr>
+  </table>
+  <div class="tip">Both access points are powered by the <strong>same underlying AI service</strong> — the difference is <em>where and how</em> you consume it, not the detection models themselves.</div>
+
+  <h3>Where it's used</h3>
+  <ul>
+    <li>Moderating prompts submitted to a generative AI service and content produced by generative AI models</li>
+    <li>Online marketplaces, gaming chat/UGC, social platforms, enterprise media, K-12 filtering</li>
+  </ul>
+  <p><strong>Important exam fact:</strong> Azure AI Content Safety <strong>cannot</strong> be used to detect illegal child exploitation images — that requires specialized services (e.g., PhotoDNA), not Content Safety.</p>
+
+  <h3>Content Safety Studio</h3>
+  <p>A web portal (<code>contentsafety.cognitive.azure.com</code>) with: Moderate Text Content tool, Moderate Image Content tool, Monitor Online Activity dashboard, and Microsoft's built-in terms blocklists plus the ability to upload custom blocklists. Lets you test sensitivity levels and export code.</p>
+
+  <div class="retire">
+    <strong>Deprecation watch (retiring April 30, 2027):</strong> Analyze Multimodal (preview), Custom categories (rapid) text+image, Connected/Disconnected Content Safety containers, Embedded Content Safety SDK, and Groundedness detection in Content Safety/Azure OpenAI are all public-preview capabilities slated for retirement — check the linked migration guidance pages if this appears on an exam scenario about long-term architecture choices.
+  </div>
+
+  <div class="must-know"><b>Must know:</b> Guardrails = the control layer; Azure AI Content Safety = the underlying detection service. The <em>same</em> models power Foundry's built-in guardrails and the standalone Content Safety resource — choose standalone when you need full-character moderation, multi-platform consistency, or moderation outside of model/agent calls (e.g., UGC on a website).</div>
+</section>
+
+<section id="cs-harm">
+  <h2>2. Harm Categories &amp; Severity Levels</h2>
+  <p>Content Safety classifies harmful content into <strong>four core harm categories</strong>, applied consistently to both text and image content using neural multiclass classification models:</p>
+  <table>
+    <tr><th>Category</th><th>Covers</th></tr>
+    <tr><td><strong>Hate and Fairness</strong></td><td>Discriminatory language tied to race, ethnicity, nationality, gender identity, sexual orientation, religion, appearance, disability, harassment/bullying.</td></tr>
+    <tr><td><strong>Sexual</strong></td><td>Anatomical/sexual language, romantic/sexual acts, nudity, pornography, abuse, child exploitation/grooming.</td></tr>
+    <tr><td><strong>Violence</strong></td><td>Physical harm, weapons/guns, bullying/intimidation, terrorism/extremism, stalking.</td></tr>
+    <tr><td><strong>Self-Harm</strong></td><td>Self-injury, suicide, eating disorders, related bullying.</td></tr>
+  </table>
+  <p>A fifth category, <strong>Task Adherence</strong>, applies specifically to AI agents — it flags when tool use/response is misaligned, unintended, or premature relative to the user's instructions (not a "harm" category in the traditional sense, but part of the guardrails family).</p>
+
+  <h3>Severity scale</h3>
+  <ul>
+    <li><strong>Text:</strong> full 0–7 scale (or trimmed to 0/2/4/6).</li>
+    <li><strong>Image:</strong> trimmed scale only — 0, 2, 4, 6.</li>
+    <li><strong>Image with text (multimodal):</strong> full 0–7 scale (or trimmed).</li>
+  </ul>
+  <p>For <strong>Guardrails</strong> configuration (Foundry), severities roll up into four human-readable levels:</p>
+  <table>
+    <tr><th>Severity level</th><th>Description</th></tr>
+    <tr><td>Safe</td><td>No harmful material; always annotated, never filtered/blocked, not configurable.</td></tr>
+    <tr><td>Low</td><td>Mild: prejudiced views, mild fictional depictions, personal experience retellings.</td></tr>
+    <tr><td>Medium</td><td>Moderate: graphic depictions, bullying, content promoting harmful acts.</td></tr>
+    <tr><td>High</td><td>Severe: extremist content, explicit depictions, content endorsing serious harm.</td></tr>
+  </table>
+  <h3>Blocking level vs. severity (guardrail configuration)</h3>
+  <table>
+    <tr><th>Blocking level</th><th>Behavior</th></tr>
+    <tr><td><strong>Off</strong></td><td>Nothing blocked for this category (may still annotate). Requires approval for modified guardrails on output.</td></tr>
+    <tr><td><strong>Low</strong></td><td>Blocks only high-severity content — least restrictive.</td></tr>
+    <tr><td><strong>Medium</strong></td><td>Blocks medium + high severity.</td></tr>
+    <tr><td><strong>High</strong></td><td>Blocks low + medium + high — most restrictive.</td></tr>
+  </table>
+  <div class="tip">Watch the naming trap: a <em>blocking level</em> of "Low" blocks <strong>only high-severity</strong> content (least restrictive), while a blocking level of "High" blocks everything from low severity up (most restrictive). The blocking level name describes the <em>threshold strictness</em>, not which severities pass through untouched.</div>
+  <p>Classifiers are trained/tested primarily on Chinese, English, French, German, Italian, Japanese, Portuguese, and Spanish; other languages are supported but with variable accuracy — always evaluate false positives/negatives for your target languages.</p>
+
+  <div class="must-know"><b>Must know:</b> There are exactly <strong>4 core harm categories</strong> — Hate &amp; Fairness, Sexual, Violence, Self-Harm — each scored across <strong>text and image</strong> on a severity scale (0–7 for text, trimmed 0/2/4/6 for image). A "Safe" classification is never a factual claim; it just means the classifier found no higher severity for that category — it's not proof of accuracy, policy compliance, or complete safety.</div>
+</section>
+
+<section id="cs-apis">
+  <h2>3. Text vs. Image Moderation APIs</h2>
+  <table>
+    <tr><th>API</th><th>Purpose</th></tr>
+    <tr><td><code>Analyze Text</code></td><td>Scans text for sexual, violence, hate, and self-harm content with multi-severity levels.</td></tr>
+    <tr><td><code>Analyze Image</code></td><td>Scans images for the same four harm categories with multi-severity levels.</td></tr>
+  </table>
+  <p>Both are "Content analysis" APIs, distinct from the "AI safety and prompt protection" family (Prompt Shields, Groundedness, Protected Material, Task Adherence) which targets generative-AI-specific risks rather than general UGC moderation.</p>
+  <div class="must-know"><b>Must know:</b> Analyze Text and Analyze Image are separate REST endpoints, each independently scored against the same 4 harm categories — choose the endpoint matching the content modality; use the multimodal "Analyze Multimodal" (preview, retiring) only for combined image+text scenarios.</div>
+</section>
+
+<section id="cs-promptshields">
+  <h2>4. Prompt Shields — Jailbreak &amp; Indirect Prompt Injection Detection</h2>
+  <p>Prompt Shields (formerly <em>Jailbreak risk detection</em>) detect attempts to manipulate a model's behavior through adversarial inputs. This is a core AI-103 exam topic spanning multiple objective domains (guardrails + agent security).</p>
+
+  <h3>Two attack types</h3>
+  <table>
+    <tr><th>Attack type</th><th>Entry point</th><th>Description</th></tr>
+    <tr><td><strong>User prompt attacks</strong> (direct jailbreak)</td><td><code>userPrompt</code> field (API) / <code>user_prompts</code> (Foundry)</td><td>Malicious prompts trying to bypass system instructions or safety training — enabled by default in Foundry.</td></tr>
+    <tr><td><strong>Document attacks</strong> (indirect prompt injection)</td><td><code>documents</code> field</td><td>Hidden instructions embedded in document content (documents, emails, web pages, retrieved RAG content) that try to hijack the model session. For agents, can also scan at the <strong>tool response</strong> intervention point (preview). <strong>Off by default</strong> in Foundry — must be explicitly enabled.</td></tr>
+  </table>
+
+  <h3>Subtypes of user prompt attacks</h3>
+  <ul>
+    <li><strong>Attempt to change system rules</strong> — "ignore your instructions," unrestricted persona requests</li>
+    <li><strong>Embedding a conversation mock-up</strong> — fake conversational turns crafted to confuse the model</li>
+    <li><strong>Role-play</strong> — assigning the model an alternate persona without the original restrictions</li>
+    <li><strong>Encoding attacks</strong> — ciphers, Base64/URL encoding, or stylistic tricks to sneak past filters</li>
+  </ul>
+
+  <h3>Subtypes of document attacks (indirect prompt injection)</h3>
+  <ul>
+    <li>Manipulated Content, Information Gathering, Availability, Fraud, Malware, Allowing a compromised LLM to access system infrastructure, plus the same "change system rules / conversation mock-up / role-play" classes as user-prompt attacks.</li>
+  </ul>
+
+  <div class="tip">Classic exam distinction: a malicious instruction typed directly by the end user is a <strong>user prompt attack</strong> (direct). A malicious instruction <em>hidden inside a retrieved document, email, or web page</em> that the LLM ingests as context is a <strong>document attack</strong> — this is "indirect prompt injection," and it is scanned via the <code>documents</code> field, not <code>userPrompt</code>.</div>
+
+  <p>Response structure includes <code>detected</code> (true/false — was an attack pattern found) and <code>filtered</code> (true/false — was it actually blocked), which can differ depending on your blocking configuration. In Content Safety's standalone API, the service never blocks automatically — <strong>your application logic decides</strong> whether to allow, block, review, or escalate. In Foundry guardrails, blocking can be automatic based on your configured control.</p>
+
+  <p>Prompt Shields models are primarily trained/evaluated on <strong>English</strong>; multilingual support exists but accuracy can vary — validate with representative non-English attack samples if your app is multilingual.</p>
+
+  <div class="must-know"><b>Must know:</b> Prompt Shields detect <em>manipulation attempts</em> only — they do <strong>not</strong> judge whether content is harmful, factually accurate, grounded, or policy-compliant (that's what harm categories / groundedness / protected-material detection are for). Also remember: document-attack (indirect injection) detection is <strong>off by default</strong> in Foundry guardrails and must be explicitly turned on — a very testable "gotcha."</div>
+</section>
+
+<section id="cs-ground">
+  <h2>5. Groundedness Detection &amp; Protected Material Detection</h2>
+  <table>
+    <tr><th>Feature</th><th>Purpose</th><th>Status</th></tr>
+    <tr><td><strong>Groundedness detection</strong></td><td>Detects whether an LLM's text response is actually grounded in the source material the user supplied (catches hallucination / fabricated claims not supported by context).</td><td>Preview; Content Safety/Azure OpenAI version is scheduled to <strong>retire April 30, 2027</strong> — check for migration guidance.</td></tr>
+    <tr><td><strong>Protected material text detection</strong></td><td>Scans AI-generated text for known copyrighted/protected content, e.g. song lyrics, articles, recipes, selected web content.</td><td>GA feature.</td></tr>
+    <tr><td><strong>Task Adherence API</strong></td><td>Detects when an AI agent's tool invocations are misaligned, unintended, or premature relative to user intent — an agent-specific guardrail.</td><td>Current.</td></tr>
+  </table>
+  <div class="tip">Groundedness detection answers "is this answer supported by the provided documents?" — different from Prompt Shields (which answers "is this input trying to manipulate the model?") and from harm categories (which answer "is this content offensive/dangerous?"). Know which guardrail answers which question.</div>
+  <div class="must-know"><b>Must know:</b> Groundedness detection targets hallucination/RAG-fidelity risk, not toxicity — pair it with harm-category filters and Prompt Shields for full-spectrum generative-AI guardrails coverage.</div>
+</section>
+
+<section id="cs-custom">
+  <h2>6. Custom Categories &amp; Blocklists</h2>
+  <table>
+    <tr><th>Feature</th><th>Description</th></tr>
+    <tr><td><strong>Custom categories (standard) API</strong> (preview)</td><td>Train your own custom content categories beyond the 4 built-in harm categories, then scan <strong>text</strong> for matches.</td></tr>
+    <tr><td><strong>Custom categories (rapid) API</strong> (preview — retiring)</td><td>Define emerging harmful-content patterns quickly (e.g., a new trend) and scan both text and images for matches without full model retraining.</td></tr>
+    <tr><td><strong>Blocklists</strong></td><td>Exact-match term lists layered on top of the AI classifiers. Microsoft provides built-in profanity blocklists in Content Safety Studio; you can also upload your own custom terms specific to your domain/brand.</td></tr>
+  </table>
+  <div class="tip">Blocklists are deterministic exact/fuzzy string matches — useful for known banned terms, brand names, or slurs that the neural classifier might score as "safe" in context. They complement, not replace, the AI harm-category classifiers.</div>
+  <div class="must-know"><b>Must know:</b> Use <strong>blocklists</strong> for exact known terms (deterministic, fast, zero training); use <strong>custom categories</strong> when you need the AI classifier itself to learn a brand-new harmful pattern that doesn't map to the 4 built-in categories.</div>
+</section>
+
+<section id="cs-foundry">
+  <h2>7. Content Safety vs. Azure OpenAI / Foundry Built-in Content Filters</h2>
+  <table>
+    <tr><th>Aspect</th><th>Foundry / Azure OpenAI built-in guardrails</th><th>Standalone Azure AI Content Safety resource</th></tr>
+    <tr><td>Scope</td><td>Applies automatically to prompts/completions flowing through a Foundry-hosted model or agent deployment.</td><td>Callable from any application, any platform, independent of where your model runs.</td></tr>
+    <tr><td>Cost</td><td>Free moderation for the first 1,000 text characters per request.</td><td>Billed per Content Safety pricing for all characters/images processed.</td></tr>
+    <tr><td>Configuration</td><td>Configured as guardrail "controls" per model deployment/agent (blocking level per category, enable/disable Prompt Shields document-attack scanning, etc.).</td><td>Configured via direct API calls / Content Safety Studio; your app owns the allow/block/escalate decision logic.</td></tr>
+    <tr><td>Best for</td><td>Consistent, low-friction protection for models/agents already inside Foundry.</td><td>Cross-platform consistency, moderating non-model content (UGC, marketplaces), or needing full-character coverage beyond the free tier.</td></tr>
+  </table>
+  <div class="must-know"><b>Must know:</b> Both paths use the <strong>same underlying detection models</strong> — the exam-relevant distinction is architectural (where/how you invoke it and what's free vs. billed), not detection quality. Pick standalone Content Safety when protecting non-Foundry or multi-platform workloads, or moderating content that never touches a model call at all (e.g., raw user uploads).</div>
+</section>
+
+<!-- ============================================================ -->
+<!-- SECTION 2: AZURE AI TRANSLATOR                                -->
+<!-- ============================================================ -->
+
+<section id="tr-overview">
+  <h2>8. Azure Translator — Overview &amp; Service Family</h2>
+  <p>Azure Translator (part of <strong>Foundry Tools</strong>, formerly "Azure AI services") is a cloud-based <strong>neural machine translation (NMT)</strong> service supporting 100+ languages and dialects, usable on any OS via REST API, SDKs, or the Foundry portal.</p>
+  <table>
+    <tr><th>Feature</th><th>What it does</th></tr>
+    <tr><td><strong>Text translation (2026-06-06, GA)</strong></td><td>Newest API version; adds model choice (NMT or LLM), adaptive custom translation, tone/gender controls.</td></tr>
+    <tr><td><strong>Text translation v3 (GA)</strong></td><td>The long-standing stable API; supports dynamic dictionary and "prevent translation" markers.</td></tr>
+    <tr><td><strong>Document translation (async/batch)</strong></td><td>Translate many/large files via Blob Storage, preserving structure/format.</td></tr>
+    <tr><td><strong>Document translation (sync/single file)</strong></td><td>Translate one file directly in the request/response — no Blob Storage required.</td></tr>
+    <tr><td><strong>Adaptive custom translation</strong></td><td>Supply 5–10,000 aligned source–target segment pairs to steer an LLM's translation style/terminology in minutes (no full model training).</td></tr>
+    <tr><td><strong>Custom Translator</strong></td><td>Train a fully custom domain-specific NMT model using your own parallel documents/dictionaries.</td></tr>
+  </table>
+  <div class="tip">Use <strong>Microsoft Foundry portal</strong> for a no-code interface to text translation and synchronous document translation; use REST/SDK for production automation.</div>
+</section>
+
+<section id="tr-text">
+  <h2>9. Text Translation API</h2>
+  <h3>Core operations</h3>
+  <ul>
+    <li><strong>Languages</strong> — lists supported languages (no authentication required).</li>
+    <li><strong>Translate</strong> — translates source text to one or more target languages in a single POST request.</li>
+    <li><strong>Transliterate</strong> — converts text between writing systems/scripts (e.g., Cyrillic → Latin) for language pairs that need script conversion — distinct from translation (meaning) vs. transliteration (script/phonetics only).</li>
+  </ul>
+  <h3>Key capabilities (exam-relevant)</h3>
+  <table>
+    <tr><th>Capability</th><th>Detail</th></tr>
+    <tr><td><strong>Language auto-detect</strong></td><td>Omit the source language and the API identifies it automatically.</td></tr>
+    <tr><td><strong>Profanity filtering</strong></td><td>v3 parameter to mark or omit profane terms in the translated output.</td></tr>
+    <tr><td><strong>Dynamic dictionary</strong></td><td>Force specific word/phrase translations inline per-request using markup, without training a custom model.</td></tr>
+    <tr><td><strong>"Prevent translation"</strong></td><td>Mark spans of text (e.g., product/brand names) to pass through untranslated.</td></tr>
+    <tr><td><strong>Model choice (NMT vs. LLM)</strong></td><td>New in 2026-06-06: choose standard NMT for speed/cost/consistency, or an LLM deployment (e.g., GPT-5.1) for more nuance — LLM-based translation requires a Microsoft Foundry resource.</td></tr>
+    <tr><td><strong>Tone &amp; gender controls</strong></td><td>LLM-based translation only: select formal/informal/neutral tone and gender-specific phrasing.</td></tr>
+    <tr><td><strong>Adaptive custom translation</strong> (per-request)</td><td>Supply up to 5 reference translations or an adaptive dataset index ID to steer LLM output style/terminology without full custom-model training.</td></tr>
+  </table>
+  <h3>Authentication options</h3>
+  <ul>
+    <li><strong>Resource key</strong> — <code>Ocp-Apim-Subscription-Key</code> header (simplest to start).</li>
+    <li><strong>Time-limited token</strong> — short-lived bearer token in <code>Authorization</code> header.</li>
+    <li><strong>Microsoft Entra ID</strong> — managed identities/service principals for keyless, enterprise-grade auth.</li>
+  </ul>
+  <div class="retire">v3.0 is still GA, but the new <code>2026-06-06</code> API version introduces <strong>breaking changes</strong> (request array renamed <code>inputs</code>, response array renamed <code>value</code>). Thoroughly test before migrating production workloads from v3 to 2026-06-06.</div>
+  <div class="must-know"><b>Must know:</b> Dynamic dictionary and "prevent translation" are <strong>per-request, markup-based</strong> controls — they require no model training. Contrast with Custom Translator, which trains a persistent, reusable domain model. LLM-based translation (tone/gender controls, model choice) requires a <strong>Microsoft Foundry resource</strong>, not just a plain Translator resource.</div>
+</section>
+
+<section id="tr-doc">
+  <h2>10. Document Translation</h2>
+  <p>Document translation preserves the original layout/format/structure of complex files while translating their content. It supports two distinct workflows:</p>
+  <table>
+    <tr><th>Mode</th><th>Use case</th><th>Requires Blob Storage?</th></tr>
+    <tr><td><strong>Asynchronous (batch)</strong></td><td>Translate multiple/large documents; process runs in the background.</td><td><strong>Yes</strong> — needs source and target containers in Azure Blob Storage, plus SAS tokens or managed identity for authorization.</td></tr>
+    <tr><td><strong>Synchronous (single file)</strong></td><td>Translate exactly one document, response returned directly to the caller.</td><td><strong>No</strong> — requires only a Translator resource with a custom domain endpoint.</td></tr>
+  </table>
+  <h3>Key features</h3>
+  <ul>
+    <li>Preserves original layout/format across both modes</li>
+    <li>Applies general <strong>or custom</strong> translation models (Custom Translator)</li>
+    <li>Applies <strong>custom glossaries</strong> for terminology control</li>
+    <li>Automatic source-language detection, including documents with <strong>mixed-language content</strong> (batch mode)</li>
+    <li>(Batch only) Translate embedded <strong>image text</strong> within <code>.jpeg/.png/.bmp/.webp</code> files, and image text inside <code>.docx</code>/<code>.pptx</code> files, while preserving design/layout (billed per-image)</li>
+  </ul>
+  <div class="tip">Exam trigger phrase: "translate many files from Blob storage preserving the folder structure" → <strong>asynchronous/batch document translation</strong>. "Translate a single uploaded file and get the result back immediately in the response" → <strong>synchronous document translation</strong>, no storage account needed.</div>
+  <div class="must-know"><b>Must know:</b> Only the <strong>asynchronous/batch</strong> workflow requires an Azure Blob Storage account (source + target containers, SAS token or managed identity); the <strong>synchronous</strong> single-file workflow needs only a Translator resource with a custom domain endpoint.</div>
+</section>
+
+<section id="tr-custom">
+  <h2>11. Custom Translator &amp; Adaptive Custom Translation</h2>
+  <table>
+    <tr><th>Option</th><th>How it works</th><th>Best for</th></tr>
+    <tr><td><strong>Custom Translator</strong></td><td>Upload parallel documents/dictionaries via the Custom Translator portal; trains a dedicated custom NMT model for your domain/terminology/style.</td><td>Long-lived, high-volume domain-specific translation needs (legal, medical, manufacturing jargon) where consistent terminology matters over time.</td></tr>
+    <tr><td><strong>Adaptive custom translation</strong></td><td>Upload 5–10,000 prealigned source–target segment pairs (≤500 chars each); builds a bilingual index in minutes to steer an LLM's output (e.g., GPT-5.1) via the Translator API.</td><td>Fast, lightweight terminology/style adaptation without a full training cycle; works with the LLM translation path, not classic NMT.</td></tr>
+  </table>
+  <div class="must-know"><b>Must know:</b> Custom Translator = train a standalone NMT model (longer setup, reusable, classic workflow). Adaptive custom translation = quickly bias an <strong>LLM's</strong> translation output using a handful of example pairs (minutes, not a training job) — don't confuse the two on the exam.</div>
+</section>
+
+<section id="tr-vs-llm">
+  <h2>12. When to Use Translator vs. an LLM/Foundry Model for Translation</h2>
+  <table>
+    <tr><th>Scenario</th><th>Recommended approach</th></tr>
+    <tr><td>High-volume, low-latency, consistent, cost-predictable translation at scale (e.g., product catalogs, UI strings, support tickets)</td><td><strong>Azure Translator (NMT)</strong> — purpose-built, cheaper per character, deterministic quality, mature SLAs.</td></tr>
+    <tr><td>Need tone control, paraphrase flexibility, context-aware idiomatic translation, or translation combined with summarization/rewriting in one call</td><td><strong>LLM-based translation</strong> (via Translator's 2026-06-06 model-choice option, or directly via a Foundry chat model) — more flexible, but higher cost/latency and less deterministic.</td></tr>
+    <tr><td>Need to preserve complex document formatting (Word, PowerPoint, PDF) at scale</td><td><strong>Document translation API</strong> (NMT-backed) — purpose-built for structure preservation; LLMs are not designed for this.</td></tr>
+    <tr><td>Need domain-specific terminology/style with light per-request customization</td><td><strong>Adaptive custom translation</strong> (LLM-backed) or dynamic dictionary (NMT-backed) for quick wins; <strong>Custom Translator</strong> for a persistent trained model.</td></tr>
+    <tr><td>Translation is one step inside a broader agentic/RAG pipeline with reasoning or multi-turn context</td><td><strong>LLM-powered translation flow</strong> in Foundry — easier to blend with other reasoning tasks in the same model call.</td></tr>
+  </table>
+  <div class="tip">The AI-103 objective phrase "translate text by using Azure Translator in Foundry Tools or LLM-powered translation flows" is testing exactly this trade-off: NMT (Translator) = speed, cost, consistency, scale; LLM = flexibility, tone/nuance, integration with reasoning — know when each wins.</div>
+  <div class="must-know"><b>Must know:</b> Azure Translator's NMT engine remains the default choice for consistency, cost, and scale; LLM-based translation (now selectable <em>within</em> the Translator API itself as of 2026-06-06, requiring a Foundry resource) trades some of that consistency for tone/gender control and contextual nuance — the exam wants you to match the scenario's priority (consistency vs. flexibility) to the right engine.</div>
+</section>
+
+<footer>
+  Compiled from Microsoft Learn documentation (Azure AI Content Safety and Azure Translator in Foundry Tools) for AI-103 exam preparation. Generated 2026-11-14.
+</footer>
+
+</div>
+</body>
+</html>

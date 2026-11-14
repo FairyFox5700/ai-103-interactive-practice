@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI-103 Study Notes: Azure AI Language</title>
+<style>
+  :root{
+    --accent:#0078D4; --accent-dark:#004578; --bg:#f5f7fa; --card:#ffffff;
+    --warn-bg:#fff4e5; --warn-border:#e67e22; --tip-bg:#e8f4fd; --tip-border:#0078D4;
+  }
+  body{font-family:'Segoe UI',Calibri,Arial,sans-serif;background:var(--bg);color:#222;margin:0;padding:0;line-height:1.55;}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 24px 80px;}
+  header.hero{background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;padding:36px 24px;border-radius:0 0 16px 16px;}
+  header.hero h1{margin:0 0 8px;font-size:26px;}
+  header.hero p{margin:0;opacity:.9;font-size:14px;}
+  .badge{display:inline-block;background:rgba(255,255,255,.2);padding:4px 10px;border-radius:12px;font-size:12px;margin-top:10px;margin-right:6px;}
+  .section-nav{background:var(--card);border-radius:10px;padding:16px 22px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin:20px 0;font-size:14px;}
+  .section-nav a{color:var(--accent-dark);text-decoration:none;display:inline-block;margin:3px 10px 3px 0;}
+  .section-nav a:hover{text-decoration:underline;}
+  section{background:var(--card);border-radius:10px;padding:22px 26px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin:22px 0;}
+  section h2{color:var(--accent-dark);border-bottom:2px solid var(--accent);padding-bottom:6px;margin-top:0;font-size:21px;}
+  h3{color:var(--accent-dark);margin-top:22px;font-size:16px;}
+  .retire{background:var(--warn-bg);border-left:5px solid var(--warn-border);padding:14px 18px;border-radius:6px;margin:14px 0;font-size:14px;}
+  .tip{background:var(--tip-bg);border-left:5px solid var(--tip-border);padding:12px 16px;border-radius:6px;margin:12px 0;font-size:13.5px;}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;}
+  th,td{border:1px solid #d8dee4;padding:7px 9px;text-align:left;}
+  th{background:var(--accent);color:#fff;}
+  tr:nth-child(even){background:#f0f4f8;}
+  ul,ol{margin:8px 0;padding-left:22px;}
+  li{margin-bottom:4px;}
+  .keyword{background:#fffbdd;padding:1px 5px;border-radius:4px;font-weight:600;}
+  code{background:#eef1f4;padding:2px 5px;border-radius:4px;font-size:13px;}
+  .must-know{background:#eafaf1;border:1px solid #b7e4c7;border-radius:8px;padding:10px 16px;margin-top:14px;font-size:13.5px;}
+  .must-know b{color:#1e7e34;}
+  footer{text-align:center;color:#888;font-size:12px;margin-top:50px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>AI-103: Azure AI Language — Exam Study Notes</h1>
+  <p>Objective domain: "Implement text analysis solutions" → Apply language model text analysis (10–15% of exam)</p>
+  <span class="badge">NER &amp; PII</span>
+  <span class="badge">Sentiment / Opinion Mining</span>
+  <span class="badge">Summarization</span>
+  <span class="badge">CLU (LUIS successor)</span>
+  <span class="badge">Question Answering</span>
+  <span class="badge">LLM / Foundry extraction</span>
+</header>
+
+<div class="section-nav">
+  <strong>Jump to:</strong>
+  <a href="#resource">1. Resource &amp; Auth Model</a>
+  <a href="#ner">2. NER</a>
+  <a href="#pii">3. PII Detection</a>
+  <a href="#keyphrase">4. Key Phrase &amp; Language Detection</a>
+  <a href="#sentiment">5. Sentiment &amp; Opinion Mining</a>
+  <a href="#summarization">6. Summarization</a>
+  <a href="#clu">7. Conversational Language Understanding</a>
+  <a href="#qa">8. Question Answering</a>
+  <a href="#custom">9. Customization (Custom NER / Classification)</a>
+  <a href="#llm">10. LLM/Generative vs. Prebuilt APIs</a>
+  <a href="#cheat">11. Exam Cheat Sheet</a>
+</div>
+
+<section id="resource">
+  <h2>1. The Azure Language Resource &amp; Core Model</h2>
+  <p>Azure AI Language (branded in current docs as <strong>"Azure Language in Foundry Tools"</strong>) is a single cloud resource that bundles many NLP capabilities — you do <em>not</em> provision a separate resource per feature. Create one <code>Language</code> (or multi-service <code>Azure AI services</code>) resource and it grants a <strong>key</strong> and <strong>endpoint URL</strong> used to authenticate every REST/SDK call.</p>
+  <h3>Typical workflow (applies to almost every Language feature)</h3>
+  <ol>
+    <li>Create the Language resource → get key + endpoint.</li>
+    <li>Call the feature via REST API or an Azure SDK client library (C#, Java, JavaScript, Python).</li>
+    <li>Authenticate the request using the key/endpoint (or Microsoft Entra ID for enterprise scenarios).</li>
+    <li>Batch requests: you can combine multiple features (e.g., NER + sentiment + PII) into a single asynchronous batch API call.</li>
+    <li>Most no-code exploration happens in <strong>Microsoft Foundry</strong> (<code>ai.azure.com</code>), which lets you try features on sample or your own text without writing code.</li>
+  </ol>
+  <h3>Core vs. Legacy capability tiers</h3>
+  <p>Microsoft now groups Language features into two tiers — know this distinction, it is an easy exam trap:</p>
+  <table>
+    <tr><th>Tier</th><th>Meaning</th><th>Features</th></tr>
+    <tr><td><strong>Core capabilities</strong></td><td>Actively developed; recommended for new projects</td><td>PII detection, Language detection, Named Entity Recognition (prebuilt &amp; custom), Text Analytics for Health</td></tr>
+    <tr><td><strong>Legacy capabilities</strong></td><td>Stable/supported for existing workloads only — not recommended as the foundation for new builds</td><td>Conversational Language Understanding (CLU), Custom text classification, Entity linking, Key phrase extraction, Orchestration workflow, Question answering, Sentiment analysis &amp; opinion mining, Summarization</td></tr>
+  </table>
+  <div class="retire">
+    <strong>Retirement alert:</strong> Several "legacy" features (Key phrase extraction, Sentiment/Opinion mining, Summarization, CLU, Custom Question Answering) are scheduled to <strong>retire from Azure Language on March 31, 2029</strong>. Microsoft's guidance for new projects is to use <strong>Microsoft Foundry models</strong> (generative LLMs) instead. For the exam, assume prebuilt/legacy Language APIs are still the testable baseline, but be ready for questions contrasting them with Foundry/LLM-based approaches.
+  </div>
+  <div class="must-know"><b>Must know:</b> One Language resource (key + endpoint) authenticates all features — you don't need a new resource per capability, and a multi-service "Azure AI services" resource also covers Language.</div>
+</section>
+
+<section id="ner">
+  <h2>2. Named Entity Recognition (NER)</h2>
+  <p>NER identifies and categorizes entities in unstructured text — people, places, organizations, dates, quantities, URLs, emails, etc. It is a <strong>core capability</strong>.</p>
+  <ul>
+    <li><strong>Prebuilt NER</strong>: fixed, preset list of recognized entity categories — zero training required, call the API and get labeled spans back.</li>
+    <li><strong>Custom NER (CNER)</strong>: train a model on your own labeled text to recognize domain-specific entity categories not in the prebuilt list (e.g., "PolicyNumber", "PartSKU").</li>
+    <li>Output includes entity text, category/subcategory, character offset, length, and a confidence score.</li>
+  </ul>
+  <h3>Entity linking</h3>
+  <p>A related preconfigured feature: disambiguates identified entities and links them to a knowledge base (Wikipedia), useful when the same name could refer to multiple real-world entities.</p>
+  <div class="tip">Use prebuilt NER for common categories out-of-the-box (Person, Location, Organization, DateTime, Quantity, Email, URL, etc.). Reach for <strong>custom NER</strong> only when you need categories specific to your domain/business.</div>
+  <div class="must-know"><b>Must know:</b> Prebuilt NER needs no training data; Custom NER requires labeled examples and a train/evaluate/deploy cycle, same as CLU and custom text classification.</div>
+</section>
+
+<section id="pii">
+  <h2>3. PII / Sensitive Information Detection</h2>
+  <p>PII detection identifies, classifies, and can <strong>redact</strong> sensitive data (names, SSNs, phone numbers, credit cards, health identifiers, etc.) across three distinct feature types that share the same model family but differ by input shape:</p>
+  <table>
+    <tr><th>Feature type</th><th>Input</th><th>Processing</th><th>Best for</th></tr>
+    <tr><td><strong>Text PII</strong></td><td>Raw text strings</td><td>Synchronous</td><td>Prompts, logs, tickets, app fields</td></tr>
+    <tr><td><strong>Conversation PII</strong></td><td>Turn-based chat / call transcripts</td><td>Asynchronous (job-based)</td><td>Contact centers, meetings, voice transcripts</td></tr>
+    <tr><td><strong>Document-based PII</strong></td><td>Native files (.pdf, .docx, .txt)</td><td>Asynchronous (job-based)</td><td>Compliance pipelines, document sharing — preserves file structure, returns redacted file + JSON metadata</td></tr>
+  </table>
+  <p>All three return structured output with entity categories, confidence scores, and redacted text/documents. PII detection also supports a preview <strong>synthetic replacement / anonymization</strong> mode (replace PII with realistic-looking fake values instead of masking with <code>***</code>).</p>
+  <div class="tip">PII and Language detection are the two "core" prebuilt features most directly aligned with everyday compliance scenarios on the exam — expect scenario questions like "redact SSNs from chat transcripts before storage" → Conversation PII.</div>
+  <div class="must-know"><b>Must know:</b> Choose the PII feature type by <em>input shape</em>, not by data sensitivity: single strings → Text PII; multi-turn chat/call transcripts → Conversation PII; whole files (PDF/DOCX) → Document-based PII (async, preserves document fidelity).</div>
+</section>
+
+<section id="keyphrase">
+  <h2>4. Key Phrase Extraction &amp; Language Detection</h2>
+  <h3>Key phrase extraction</h3>
+  <p>Evaluates unstructured text and returns the main concepts/topics as a flat list of phrases (not full sentences). Example: "The food was delicious and the staff were wonderful" → <code>["food", "wonderful staff"]</code>. No customization — analysis is "as-is."</p>
+  <h3>Language detection</h3>
+  <p>A <strong>core capability</strong>. Detects the dominant language of input text across 100+ languages/dialects and returns: language name, ISO 639-1 code, confidence score, plus optional <strong>script detection</strong> (ISO 15924 code) for languages written in multiple scripts (e.g., Kazakh in Cyrillic vs. Latin).</p>
+  <ul>
+    <li><strong>Ambiguous content handling</strong>: pass an ISO 3166-1 alpha-2 country/region hint to disambiguate words common to multiple languages (e.g., "communication" is valid English and French — hinting "FR" nudges detection toward French).</li>
+  </ul>
+  <div class="must-know"><b>Must know:</b> Language detection runs <em>before</em> most other text analytics in a pipeline — many multilingual solutions call it first to pick the right model/translation path. It returns a confidence score and can report script separately from language.</div>
+</section>
+
+<section id="sentiment">
+  <h2>5. Sentiment Analysis &amp; Opinion Mining</h2>
+  <p><strong>Sentiment analysis</strong> labels text as <span class="keyword">positive</span>, <span class="keyword">neutral</span>, or <span class="keyword">negative</span> at both the <strong>document</strong> and <strong>sentence</strong> level, each with confidence scores (0–1) across all three labels.</p>
+  <p><strong>Opinion mining</strong> (a.k.a. aspect-based sentiment analysis) is an optional, more granular extension of sentiment analysis: it links sentiment to specific <em>aspects</em> (e.g., product/service attributes) and their associated opinion words. Example: "The food was great, but the service was slow" → aspect "food" = positive, aspect "service" = slow/negative.</p>
+  <div class="retire">Sentiment analysis &amp; opinion mining retire from Azure Language on <strong>March 31, 2029</strong>. Microsoft directs new projects to Foundry models instead — know this fact for "which approach should you use for a brand-new project" questions.</div>
+  <div class="must-know"><b>Must know:</b> Opinion mining is a sub-feature you explicitly enable on top of sentiment analysis to get aspect-level (not just whole-sentence) sentiment — it doesn't replace sentence/document sentiment, it augments it.</div>
+</section>
+
+<section id="summarization">
+  <h2>6. Summarization</h2>
+  <p>Summarization combines generative LLMs and task-optimized encoder models and supports <strong>three input genres</strong>: plain text, conversations (incl. audio-derived transcripts), and native documents (Word/PDF/plain text in original format).</p>
+  <table>
+    <tr><th>Approach</th><th>How it works</th><th>Output</th></tr>
+    <tr><td><strong>Extractive</strong></td><td>Selects/ranks the most salient <em>original sentences</em> from the source text</td><td>Verbatim sentences + rank score + position/offset info; you choose how many sentences</td></tr>
+    <tr><td><strong>Abstractive</strong></td><td>Generates new, concise sentences that paraphrase the source (not verbatim)</td><td>Novel summary text(s) + the contextual input range each was generated from; long input may be segmented into multiple summaries</td></tr>
+  </table>
+  <h3>Document vs. conversation summarization</h3>
+  <ul>
+    <li><strong>Text/document summarization</strong>: plain text blocks or native documents; supports both extractive and abstractive modes; jobs are async and results retrievable for 24 hours before being purged.</li>
+    <li><strong>Conversation summarization</strong>: accepts multi-turn conversational input (chat or speech-derived transcripts); can produce issue/resolution summaries, chapter titles, recaps — tuned for meeting/call-center scenarios.</li>
+  </ul>
+  <div class="tip">Exam trap: extractive = "copy the best sentences" (traceable, auditable, good for compliance where you must cite the original wording); abstractive = "rewrite in new words" (more fluent but can hallucinate — generative/LLM-based).</div>
+  <div class="retire">Summarization also retires March 31, 2029 in favor of Microsoft Foundry models — but for the current exam version, know both extractive and abstractive mechanics and their distinct output shapes.</div>
+  <div class="must-know"><b>Must know:</b> Extractive summarization returns original sentences + a rank score; abstractive summarization returns newly generated text + the input range used — if a question emphasizes "must use exact original wording," the answer is extractive.</div>
+</section>
+
+<section id="clu">
+  <h2>7. Conversational Language Understanding (CLU)</h2>
+  <p>CLU is the <strong>custom</strong> natural-language-understanding feature used to build models that predict the <strong>intent</strong> of an utterance and extract <strong>entities</strong> from it. CLU only understands input — it performs no actions itself; your application/bot acts on the predicted intent/entities.</p>
+  <div class="retire"><strong>LUIS is retired.</strong> Conversational Language Understanding is its direct successor and the service you should know for AI-103 — any exam reference to "replace LUIS" or "migrate from LUIS" points to CLU. (CLU itself is now also flagged as a "legacy" capability retiring March 31, 2029, with Microsoft Foundry models as the long-term direction — but CLU remains the tested successor-to-LUIS concept.)</div>
+  <h3>Key terminology (glossary)</h3>
+  <table>
+    <tr><th>Term</th><th>Definition</th></tr>
+    <tr><td><strong>Utterance</strong></td><td>A natural-language input/phrase a user might type or say</td></tr>
+    <tr><td><strong>Intent</strong></td><td>The task/goal the user wants (e.g., "BookFlight", "PayBill")</td></tr>
+    <tr><td><strong>Entity</strong></td><td>A word/phrase in the utterance that carries information needed to fulfill the intent (can have sub-entities, e.g., Address → Street/City/Zip)</td></tr>
+    <tr><td><strong>List entity</strong></td><td>A fixed, closed set of words + synonyms; matched exactly regardless of context (e.g., size = small/medium/large)</td></tr>
+    <tr><td><strong>Project</strong></td><td>The workspace where you build/label/train a CLU model</td></tr>
+    <tr><td><strong>Model / Training / Deployment</strong></td><td>You label utterances → train a model → evaluate (precision/recall/F1) → deploy to a Runtime API endpoint for predictions</td></tr>
+    <tr><td><strong>Overfitting</strong></td><td>Model memorizes training examples instead of generalizing to new utterances</td></tr>
+  </table>
+  <h3>Two build paths</h3>
+  <ol>
+    <li><strong>LLM-powered quick deploy</strong>: define intents + natural-language descriptions (no labeling needed) → deploy → the LLM predicts intents/prebuilt entities directly.</li>
+    <li><strong>Custom machine-learned model</strong>: define schema (intents + entities) → label utterances → train → evaluate → improve → deploy → predict via Runtime API. Label quality directly drives model quality.</li>
+  </ol>
+  <h3>Common use cases</h3>
+  <ul>
+    <li>Multi-turn conversations with entity "slot filling" (progressively collect required info, e.g., booking systems)</li>
+    <li>End-to-end conversational bots (retail/order bots)</li>
+    <li>Human-assistant / HR / enterprise chatbots</li>
+    <li>Command-and-control apps paired with speech-to-text (e.g., "play", "stop", "turn off the lights")</li>
+  </ul>
+  <h3>Orchestration workflow</h3>
+  <p>A separate custom feature that sits above CLU and Question Answering: it routes an incoming utterance to the correct underlying CLU project or Question Answering knowledge base ("skill") when you have multiple specialized models (e.g., calendar skill vs. FAQ skill in one enterprise bot).</p>
+  <div class="must-know"><b>Must know:</b> CLU = successor to LUIS, for <em>intent + entity prediction only</em> — it never executes actions. If a scenario needs to route between multiple CLU projects and a Question Answering KB, the answer is <strong>Orchestration workflow</strong>.</div>
+</section>
+
+<section id="qa">
+  <h2>8. Question Answering (Custom Question Answering, CQA)</h2>
+  <p>Custom question answering builds a <strong>knowledge base</strong> from FAQs, manuals, and documents to power chat bots / virtual assistants that answer natural-language questions with accurate, sourced answers.</p>
+  <h3>Key capabilities</h3>
+  <ul>
+    <li><strong>Knowledge base creation</strong> — import from URLs, files, documents; auto-extracts Q/A pairs from structured and semi-structured sources.</li>
+    <li><strong>Multi-turn conversations</strong> — guided follow-up prompts to navigate complex topics.</li>
+    <li><strong>Metadata filtering</strong> — tag answers (content type, domain, freshness) to scope responses contextually.</li>
+    <li><strong>Active learning</strong> — improves ranking/answers over time using real usage data.</li>
+    <li><strong>Deep learning ranking</strong> — combines Azure AI Search with NLP re-ranking for best-answer selection.</li>
+  </ul>
+  <h3>Lifecycle</h3>
+  <ol>
+    <li>Create a project / knowledge base (Microsoft Foundry classic, low-code, supports markdown + chit-chat personality layers)</li>
+    <li>Test &amp; refine in the test interface</li>
+    <li>Deploy → publishes a REST API endpoint</li>
+    <li>Integrate → client apps query and get JSON answers with confidence scores and follow-up prompts</li>
+  </ol>
+  <p>Deploys easily to <strong>Azure Bot Service</strong> for a ready-made conversational front end.</p>
+  <div class="retire">Custom Question Answering retires March 31, 2029 — Foundry is the forward-looking replacement, but CQA concepts (KB from FAQs, confidence scores, multi-turn prompts) remain testable.</div>
+  <div class="must-know"><b>Must know:</b> Question Answering ≠ CLU. CLU predicts intent/entities from open-ended utterances for custom logic; Question Answering retrieves a best-matching pre-authored answer from a curated knowledge base (FAQ-style) with a confidence score.</div>
+</section>
+
+<section id="custom">
+  <h2>9. Customization: Custom NER &amp; Custom Text Classification</h2>
+  <p>Beyond CLU, two other "custom" Language features follow the same labeling → training → evaluation → deployment lifecycle:</p>
+  <ul>
+    <li><strong>Custom Named Entity Recognition (CNER)</strong>: train a model to extract domain-specific entity categories not covered by prebuilt NER (e.g., compliance clause types, part numbers, policy IDs).</li>
+    <li><strong>Custom text classification</strong>: classify unstructured documents into your own custom classes/labels — supports <strong>single-label</strong> (one class per document) and <strong>multi-label</strong> (several classes per document) classification projects.</li>
+  </ul>
+  <p>Typical steps for any custom project: define schema/labels → upload &amp; label data → train → review evaluation metrics (precision, recall, F1) → deploy → call via the runtime/prediction API.</p>
+  <div class="tip">Domain-specific tasks called out in the exam objective — e.g., "compliance summarization" or "domain-specific extraction" — map to combining <strong>Custom NER / custom classification</strong> (structured, labeled training) with <strong>Summarization</strong> or <strong>LLM prompting</strong> (for unstructured, flexible output).</div>
+  <div class="must-know"><b>Must know:</b> Precision = correctly predicted positives ÷ all predicted positives; Recall = correctly predicted positives ÷ all actual positives; F1 = harmonic balance of both. These metrics are evaluated identically across Custom NER, Custom text classification, and CLU.</div>
+</section>
+
+<section id="llm">
+  <h2>10. Generative/LLM-Based Extraction vs. Prebuilt Language APIs</h2>
+  <p>Microsoft's current direction (reflected across nearly every Language doc page) is to steer new projects toward <strong>Microsoft Foundry</strong> generative models for text analysis tasks — entities, topics, summaries, and structured JSON — using <strong>prompt engineering</strong> instead of (or alongside) the classic prebuilt REST APIs.</p>
+  <table>
+    <tr><th>Approach</th><th>Strengths</th><th>Trade-offs</th></tr>
+    <tr><td><strong>Prebuilt Language APIs</strong> (NER, key phrase, sentiment, summarization, PII)</td><td>Deterministic, fast, cheap, no prompt design needed, consistent schema/confidence scores, good for compliance/auditability</td><td>Fixed entity categories (unless you go custom); less flexible output shaping; several features scheduled to retire by 2029</td></tr>
+    <tr><td><strong>Generative/LLM prompting</strong> (via Foundry models / Azure OpenAI)</td><td>Flexible — can extract arbitrary entities/topics, produce abstractive summaries, or return <strong>structured JSON</strong> matching any schema you define in the prompt; can combine extraction + reasoning in one call</td><td>Non-deterministic without careful prompting/temperature control; costs more per call; needs evaluation/guardrails; less "out of the box" confidence scoring</td></tr>
+  </table>
+  <h3>Foundry Tools framing</h3>
+  <p>Azure Language capabilities are also exposed as callable <strong>tools in the Microsoft Foundry Tool Catalog</strong> (as a remote MCP server, or self-hosted locally) — meaning an agent built in Foundry can invoke NER/PII/summarization/etc. as a tool call rather than you writing direct REST calls. This is the bridge between "classic Language APIs" and "LLM agents": an agent's orchestrating LLM decides when to call a Language tool (e.g., redact PII) versus when to generate an answer itself.</p>
+  <div class="tip">Exam framing: when a scenario needs <em>flexible, instruction-following</em> extraction into a custom JSON schema, or combines extraction with summarization/translation/reasoning in one step, lean toward <strong>generative/LLM prompting via Foundry</strong>. When a scenario needs <em>fast, deterministic, auditable</em> entity/sentiment/PII detection with built-in confidence scores, the <strong>prebuilt Language API</strong> is still the right call.</div>
+  <div class="must-know"><b>Must know:</b> Prebuilt Language APIs return fixed schemas with confidence scores and are optimized for deterministic, compliance-friendly analysis; generative/LLM prompting (Foundry models) trades some determinism for flexible, custom-schema extraction and can be invoked as a tool from an agent.</div>
+</section>
+
+<section id="cheat">
+  <h2>11. Exam Cheat Sheet — Quick Facts</h2>
+  <ul>
+    <li>One <strong>Language resource</strong> (key + endpoint) authenticates all Language features; multi-service Azure AI services resource also works.</li>
+    <li><strong>Core capabilities</strong> (new-project recommended): PII detection, Language detection, NER (prebuilt &amp; custom), Text Analytics for Health.</li>
+    <li><strong>Legacy capabilities</strong> (supported, not for new foundations): CLU, Custom text classification, Entity linking, Key phrase extraction, Orchestration workflow, Question answering, Sentiment/opinion mining, Summarization.</li>
+    <li>Several legacy features <strong>retire March 31, 2029</strong> → migrate to Microsoft Foundry models.</li>
+    <li><strong>CLU replaced LUIS</strong> — intents + entities + utterances; trains/evaluates/deploys like other custom features; does not take action itself.</li>
+    <li><strong>Opinion mining</strong> = aspect-based add-on to sentiment analysis (not a standalone replacement).</li>
+    <li><strong>Extractive summarization</strong> = original sentences + rank score; <strong>abstractive</strong> = new generated text + input range.</li>
+    <li><strong>PII feature choice</strong> is driven by input shape: Text PII (strings), Conversation PII (chat/transcripts), Document-based PII (native files, async).</li>
+    <li><strong>Question Answering</strong> = FAQ/knowledge-base retrieval with confidence score; different from CLU's open-ended intent prediction.</li>
+    <li><strong>Orchestration workflow</strong> routes between multiple CLU projects and/or Question Answering knowledge bases.</li>
+    <li>Custom NER / custom text classification / CLU all share the same lifecycle: label → train → evaluate (precision/recall/F1) → deploy → predict.</li>
+    <li>Generative/LLM prompting (Foundry models) favored for flexible, custom-JSON extraction; prebuilt APIs favored for deterministic, auditable results; Language capabilities can be called as agent tools via the Foundry Tool Catalog / MCP server.</li>
+  </ul>
+</section>
+
+<footer>
+  Compiled from Microsoft Learn — Azure AI Language documentation (learn.microsoft.com/azure/ai-services/language-service/). Generated 2026-11-14 for AI-103 exam preparation.
+</footer>
+
+</div>
+</body>
+</html>

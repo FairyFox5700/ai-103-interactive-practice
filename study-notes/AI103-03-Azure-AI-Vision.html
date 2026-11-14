@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI-103 Study Notes: Azure AI Vision</title>
+<style>
+  :root{
+    --accent:#0078D4; --accent-dark:#004578; --bg:#f5f7fa; --card:#ffffff;
+    --warn-bg:#fff4e5; --warn-border:#e67e22; --tip-bg:#e8f4fd; --tip-border:#0078D4;
+  }
+  body{font-family:'Segoe UI',Calibri,Arial,sans-serif;background:var(--bg);color:#222;margin:0;padding:0;line-height:1.55;}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 24px 80px;}
+  header.hero{background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;padding:36px 24px;border-radius:0 0 16px 16px;}
+  header.hero h1{margin:0 0 8px;font-size:26px;}
+  header.hero p{margin:0;opacity:.9;font-size:14px;}
+  .badge{display:inline-block;background:rgba(255,255,255,.2);padding:4px 10px;border-radius:12px;font-size:12px;margin-top:10px;margin-right:6px;}
+  .section-nav{background:var(--card);border-radius:10px;padding:16px 22px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin:20px 0;font-size:14px;}
+  .section-nav a{color:var(--accent-dark);text-decoration:none;display:inline-block;margin:3px 10px 3px 0;}
+  .section-nav a:hover{text-decoration:underline;}
+  section{background:var(--card);border-radius:10px;padding:22px 26px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin:22px 0;}
+  section h2{color:var(--accent-dark);border-bottom:2px solid var(--accent);padding-bottom:6px;margin-top:0;font-size:21px;}
+  h3{color:var(--accent-dark);margin-top:22px;font-size:16px;}
+  .retire{background:var(--warn-bg);border-left:5px solid var(--warn-border);padding:14px 18px;border-radius:6px;margin:14px 0;font-size:14px;}
+  .tip{background:var(--tip-bg);border-left:5px solid var(--tip-border);padding:12px 16px;border-radius:6px;margin:12px 0;font-size:13.5px;}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;}
+  th,td{border:1px solid #d8dee4;padding:7px 9px;text-align:left;}
+  th{background:var(--accent);color:#fff;}
+  tr:nth-child(even){background:#f0f4f8;}
+  ul,ol{margin:8px 0;padding-left:22px;}
+  li{margin-bottom:4px;}
+  .keyword{background:#fffbdd;padding:1px 5px;border-radius:4px;font-weight:600;}
+  code{background:#eef1f4;padding:2px 5px;border-radius:4px;font-size:13px;}
+  .must-know{background:#eafaf1;border:1px solid #b7e4c7;border-radius:8px;padding:10px 16px;margin-top:14px;font-size:13.5px;}
+  .must-know b{color:#1e7e34;}
+  footer{text-align:center;color:#888;font-size:12px;margin-top:50px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>AI-103: Developing AI Apps and Agents on Azure</h1>
+  <p>Study Notes Module 3 — <strong>Azure AI Vision</strong>: Image Analysis, OCR, Face, Multimodal Understanding, and Generative Image/Video (Foundry Models)</p>
+  <span class="badge">Implement computer vision solutions (10–15%)</span>
+  <span class="badge">Image Analysis 4.0</span>
+  <span class="badge">OCR / Read</span>
+  <span class="badge">Face</span>
+  <span class="badge">GPT-Image / Sora 2</span>
+</header>
+
+<div class="section-nav">
+  <strong>Jump to:</strong>
+  <a href="#overview">1. Azure AI Vision Overview</a>
+  <a href="#imageanalysis">2. Image Analysis</a>
+  <a href="#ocr">3. OCR / Read API</a>
+  <a href="#captions">4. Captioning & Multimodal Understanding</a>
+  <a href="#face">5. Face API</a>
+  <a href="#imagegen">6. Image Generation Models</a>
+  <a href="#videogen">7. Video Generation (Sora 2)</a>
+  <a href="#rai">8. Responsible AI for Visual Content</a>
+</div>
+
+<section id="overview">
+  <h2>1. Azure AI Vision Overview</h2>
+  <p>Azure AI Vision (branded <em>"Azure Vision in Foundry Tools"</em> in current docs) gives apps access to pretrained AI algorithms that extract information from images and video. It is organized into three legacy "Vision" product areas, plus the newer Foundry-based generative/multimodal models used for image and video <em>generation</em>.</p>
+  <table>
+    <tr><th>Service</th><th>Purpose</th></tr>
+    <tr><td><span class="keyword">Face</span></td><td>Detect, recognize, and analyze human faces (identification, liveness, touchless access, redaction). Limited access — requires Microsoft approval.</td></tr>
+    <tr><td><span class="keyword">Image Analysis</span> (legacy)</td><td>Extracts tags, objects, categories, people, captions, smart crop, adult content flags, brands, from static images.</td></tr>
+    <tr><td><span class="keyword">OCR (Read API)</span> (legacy)</td><td>Extracts printed and handwritten text from images and documents.</td></tr>
+  </table>
+  <div class="retire">
+    <strong>⚠ Deprecation alert:</strong> The <strong>Image Analysis 4.0</strong> service (and the overall "Computer Vision"/Image Analysis & OCR legacy APIs) is <strong>deprecated and will retire on September 25, 2028</strong>. After that date, calls will fail. Exam answers favoring "future-proof" architecture should point toward the Migration Guide and toward multimodal LLMs (GPT-4o/GPT-5.x/GPT-6.x vision input) for new designs, while legacy Image Analysis/OCR remain valid and testable for current exam content.
+  </div>
+  <h3>Image input requirements (common across legacy Vision APIs)</h3>
+  <ul>
+    <li>Format: JPEG, PNG, GIF, or BMP.</li>
+    <li>File size: under 4 MB.</li>
+    <li>Dimensions: greater than 50×50 px (Read API: between 50×50 and 10,000×10,000 px).</li>
+  </ul>
+  <h3>Versions of Image Analysis</h3>
+  <table>
+    <tr><th>Version</th><th>Features</th><th>When to use</th></tr>
+    <tr><td><strong>4.0</strong></td><td>Read (sync OCR), Captions, Dense Captions, Tags, Object detection, People detection, Smart Crop</td><td>Preferred — better models, but captioning only available in certain regions.</td></tr>
+    <tr><td><strong>3.2</strong></td><td>Tags, Objects, Descriptions, Brands, Faces, Image type, Color scheme, Landmarks, Celebrities, Adult content, Smart crop</td><td>Use when a 4.0 feature isn't supported in your region/use case (e.g., captioning outside supported regions is available everywhere in 3.2).</td></tr>
+  </table>
+  <div class="must-know"><b>Must know:</b> Image Analysis 4.0 captioning is region-restricted; if a scenario requires captions in an unsupported region, the correct exam answer is to fall back to <strong>Image Analysis 3.2</strong>, not to abandon captioning.</div>
+</section>
+
+<section id="imageanalysis">
+  <h2>2. Image Analysis (v4.0 features)</h2>
+  <p>The <strong>Analyze Image</strong> API is a single REST call where you request one or more visual <code>features</code> in the query string. Key v4.0 features:</p>
+  <table>
+    <tr><th>Feature</th><th>Query value</th><th>Notes</th></tr>
+    <tr><td>Caption</td><td><code>Caption</code></td><td>One-sentence description of the whole image (English only). Supports <code>gender-neutral-caption=true</code> to replace man/woman/boy/girl with "person".</td></tr>
+    <tr><td>Dense Captions</td><td><code>denseCaptions</code></td><td>Up to 10 region-level captions + whole-image caption, each with a bounding box. Built on Florence-based models.</td></tr>
+    <tr><td>Tags</td><td><code>Tags</code></td><td>Thousands of recognizable objects, living beings, scenery, actions with confidence scores.</td></tr>
+    <tr><td>Objects</td><td><code>Objects</code></td><td>Like tagging, but returns bounding box coordinates per detected object.</td></tr>
+    <tr><td>Read (OCR)</td><td><code>Read</code></td><td>Synchronous OCR in the same call as other visual features (v4.0 only) — unifies OCR + insights in one request.</td></tr>
+    <tr><td>People detection</td><td><code>People</code></td><td>Bounding boxes + confidence for each detected person (v4.0 only).</td></tr>
+    <tr><td>Smart Crop</td><td><code>smartCrops</code></td><td>Suggests crop regions/aspect ratios that keep the most important part of the image ("region of interest") for thumbnails.</td></tr>
+  </table>
+  <div class="tip">Features not yet in 4.0 (Faces, Brands, Landmarks, Celebrities, Color scheme, Adult content, Image type) still require falling back to <strong>v3.2</strong>.</div>
+  <div class="must-know"><b>Must know:</b> In v4.0, OCR (<code>Read</code>) became <strong>synchronous</strong> and can be requested together with other features (Tags, Caption, Objects) in one API call — a major exam differentiator vs. the async v3.2 Read API.</div>
+</section>
+
+<section id="ocr">
+  <h2>3. OCR / Read API</h2>
+  <p>OCR (optical character recognition) extracts printed and handwritten text. Microsoft's <strong>Read</strong> OCR engine powers both Azure Vision OCR and Document Intelligence's Read model.</p>
+  <table>
+    <tr><th>Scenario</th><th>Recommended service</th><th>Why</th></tr>
+    <tr><td>General "in-the-wild" images (labels, signs, posters)</td><td><strong>OCR for images v4.0</strong></td><td>Synchronous, performance-optimized API, easy to embed in UX.</td></tr>
+    <tr><td>Text-heavy scanned/digital documents (forms, invoices, reports)</td><td><strong>Document Intelligence Read model</strong></td><td>Asynchronous, optimized for document structure at scale, feeds Intelligent Document Processing (IDP).</td></tr>
+  </table>
+  <h3>Capabilities</h3>
+  <ul>
+    <li>Extracts text as <strong>pages → text lines → words</strong>, each with bounding box + confidence score.</li>
+    <li>Supports <strong>mixed languages</strong> and mixed print/handwriting in a single image.</li>
+    <li>Printed-text languages: English, French, German, Italian, Portuguese, Spanish, Chinese, Japanese, Korean, Russian, Arabic, Hindi, and more (Latin, Cyrillic, Arabic, Devanagari scripts).</li>
+    <li>Handwritten-text languages: English, Chinese Simplified, French, German, Italian, Japanese, Korean, Portuguese, Spanish.</li>
+    <li>Available as cloud API <strong>or</strong> a Distroless Docker container for on-premises/air-gapped deployment.</li>
+  </ul>
+  <h3>Input requirements</h3>
+  <ul>
+    <li>Supported formats: JPEG, PNG, BMP, PDF, TIFF.</li>
+    <li>PDF/TIFF: up to 2,000 pages processed (free tier: first 2 pages only).</li>
+  </ul>
+  <div class="tip">The legacy Azure Vision v3.2 GA Read API and v2.1 RecognizeText API are <strong>not recommended</strong> for new builds — Microsoft directs all future Read enhancements into Image Analysis 4.0 (images) and Document Intelligence (documents).</div>
+  <div class="must-know"><b>Must know / exam trap:</b> Choose <strong>OCR v4.0 (synchronous)</strong> for single, non-document images embedded in an interactive app; choose <strong>Document Intelligence Read</strong> (asynchronous) for multi-page documents/forms at scale. Picking the wrong one is a classic scenario question.</div>
+</section>
+
+<section id="captions">
+  <h2>4. Captioning & Multimodal Understanding</h2>
+  <h3>Classic captioning (Image Analysis)</h3>
+  <ul>
+    <li><strong>Caption</strong>: single, one-sentence, human-readable description of the whole image with a confidence score.</li>
+    <li><strong>Dense Captions</strong>: multiple short captions, one per detected region (up to 10) plus the whole image, each with a bounding box — useful for describing separate parts of a complex scene.</li>
+    <li>English only; v4.0 region-restricted (use v3.2 elsewhere).</li>
+  </ul>
+  <h3>Modern multimodal understanding (GPT-4o / GPT-5.x / GPT-6.x vision input)</h3>
+  <p>For the exam's broader "analyze visual context with multimodal models" objective, Azure OpenAI/Foundry chat models (e.g., GPT-4o, GPT-5 series, GPT-6 series) accept <strong>text + image input</strong> in a single prompt via the Chat Completions or Responses API. This enables scenarios beyond fixed-schema Image Analysis:</p>
+  <ul>
+    <li><strong>Visual question answering (VQA):</strong> ask free-form natural-language questions grounded in an image ("What safety violations are visible in this photo?").</li>
+    <li><strong>Detailed / concise descriptions:</strong> prompt-controlled caption length and tone, unlike the fixed one-sentence Image Analysis caption.</li>
+    <li><strong>Multiple-image reasoning:</strong> compare/contrast or summarize across several images in one request (not supported by classic Image Analysis, which is single-image).</li>
+    <li><strong>Accessibility / alt-text generation:</strong> generate descriptive alt text for accessibility compliance, customizable via prompt instructions (e.g., tone, verbosity, focus on specific elements).</li>
+    <li><strong>Grounded extraction:</strong> combine with structured outputs/function calling to pull structured data (counts, labels, categories) out of an image using a schema.</li>
+  </ul>
+  <div class="tip">Classic Image Analysis captioning is deterministic, fast, and cheap but limited to one fixed-format sentence. Multimodal LLM-based captioning is flexible and conversational but higher latency/cost and subject to standard LLM content-filter and hallucination risks — pick based on the scenario's need for structured, low-latency output vs. open-ended reasoning.</div>
+  <div class="must-know"><b>Must know:</b> When a scenario asks for <strong>answering open-ended questions about an image</strong> or reasoning across <strong>multiple images</strong>, the correct choice is a <strong>multimodal chat model</strong> (GPT-4o/5.x/6.x with image input), not the classic Image Analysis Caption/Dense Captions feature, which only produces fixed-format single-image captions.</div>
+</section>
+
+<section id="face">
+  <h2>5. Face API</h2>
+  <p>The Face service detects, recognizes, and analyzes human faces. <strong>It is a Limited Access service</strong> — new customers must apply via the Face Recognition intake form and be approved (Microsoft-managed customers/partners only), in line with Responsible AI principles.</p>
+  <h3>Core capabilities</h3>
+  <ul>
+    <li><strong>Face detection</strong>: returns bounding box + unique face ID; optional attributes (head pose, age, emotion, facial hair, glasses) are statistical predictions, not guaranteed classifications.</li>
+    <li><strong>Identity verification</strong>: compares a live/captured face against a trusted reference (e.g., government ID photo or enrollment photo).</li>
+    <li><strong>Liveness detection</strong>: anti-spoofing check confirming a real person is in front of the camera (defeats printed photos, recorded video, 3D masks) — critical for remote identity verification flows.</li>
+    <li><strong>Touchless access control</strong>: opt-in facial identification for check-in at airports, stadiums, offices, etc.</li>
+    <li><strong>Face redaction</strong>: blur/redact faces in video for privacy.</li>
+  </ul>
+  <h3>Responsible use restrictions</h3>
+  <ul>
+    <li>Customers must acknowledge in the Azure portal they will <strong>not use Face for or by a police department in the United States</strong> (policy since June 2020, pending stronger regulation).</li>
+    <li>If processing biometric data, the customer is responsible for notice, consent, and retention/destruction per applicable data-protection law.</li>
+    <li>Access is gated — must apply and be approved before using Face at all.</li>
+  </ul>
+  <div class="must-know"><b>Must know / exam trap:</b> Face service requires <strong>Limited Access approval</strong> before provisioning, and customers are contractually barred from using it <strong>for or by US police departments</strong>. Any scenario implying unrestricted, no-approval-needed facial recognition deployment is wrong.</div>
+</section>
+
+<section id="imagegen">
+  <h2>6. Image Generation Models (Microsoft Foundry / Azure OpenAI)</h2>
+  <p>Generative image creation and editing is delivered via the <strong>GPT-Image</strong> model family in Microsoft Foundry (Azure OpenAI). <strong>DALL-E 3 was retired March 4, 2026</strong> — existing deployments are non-functional; use a GPT-Image-series model instead for all new/current work.</p>
+  <table>
+    <tr><th>Model</th><th>Strength</th><th>Notes</th></tr>
+    <tr><td><strong>GPT-Image-2.5-Sunburst</strong></td><td>Most capable; best editing precision</td><td>GA. Custom WxH up to 4K; quality: low/medium/high/xhigh/max/auto.</td></tr>
+    <tr><td><strong>GPT-Image-2.5-Flare</strong></td><td>Fastest, high-quality everyday generation</td><td>GA.</td></tr>
+    <tr><td><strong>GPT-Image-2</strong></td><td>High-resolution/4K, improved editing, broad aspect ratios</td><td>GA. Output only base64 (no URL).</td></tr>
+    <tr><td><strong>GPT-Image-1.5</strong></td><td>Realism, instruction-following, faster/cheaper than 1</td><td>Limited access preview — requires application.</td></tr>
+    <tr><td><strong>GPT-Image-1</strong></td><td>Realism, instruction-following, multimodal context</td><td>Limited access preview — requires application.</td></tr>
+    <tr><td><strong>GPT-Image-1-Mini</strong></td><td>Cost-efficient, fast prototyping/bulk generation</td><td>Limited access preview; no dedicated face preservation.</td></tr>
+  </table>
+  <h3>Generation & editing capabilities</h3>
+  <ul>
+    <li><strong>Text-to-image generation</strong> via the <code>/images/generations</code> endpoint — prompt, size, quality, number of images (<code>n</code>, 1–10), output format (PNG/JPEG), optional transparent background (GPT-Image-1 only, requires PNG).</li>
+    <li><strong>Image editing / inpainting</strong> via the <code>/images/edits</code> endpoint — supply a source image plus an optional <strong>mask</strong> (must match image dimensions) to constrain edits to specific regions; combine with a text prompt describing the desired change.</li>
+    <li><strong>Variations</strong>: generate alternate interpretations of an input image/prompt (GPT-Image-1/1.5/1-Mini support mask + prompt-based variations).</li>
+    <li><strong>Face preservation</strong>: GPT-Image-1, 1.5, and 2 offer advanced face preservation for consistent, realistic results across edits (not in GPT-Image-1-Mini).</li>
+    <li>Can be called via the dedicated Image Generation API <em>or</em> the unified <strong>Responses API</strong> (multimodal, same API used for chat/agents).</li>
+  </ul>
+  <h3>Content safety on image generation</h3>
+  <ul>
+    <li>All image generation models have a built-in <strong>content moderation filter</strong> on both prompt and generated output.</li>
+    <li>Blocked prompt → HTTP error code <code>content_policy_violation</code> / <code>contentFilter</code>, message: <em>"Your task failed as a result of our safety system."</em></li>
+    <li>Blocked output image → status <code>Failed</code>, <code>error.code = contentFilter</code>, message: <em>"Generated image was filtered as a result of our safety system."</em></li>
+  </ul>
+  <div class="tip">Use <strong>Microsoft Entra ID with managed identity</strong> rather than API keys for production auth — the recommended pattern across all Foundry Models APIs (image & video generation included).</div>
+  <div class="must-know"><b>Must know:</b> Mask-based <strong>inpainting</strong> = edit only the masked region of an existing image while preserving the rest; the mask must be the <strong>same pixel dimensions</strong> as the source image. DALL-E 3 is retired — any current/new exam-style solution must specify a <strong>GPT-Image-series</strong> model.</div>
+</section>
+
+<section id="videogen">
+  <h2>7. Video Generation (Sora 2, preview)</h2>
+  <p><strong>Sora 2</strong> is OpenAI's video generation model available through Microsoft Foundry/Azure OpenAI, creating realistic or imaginative video scenes from text and/or reference images/video.</p>
+  <h3>Capabilities</h3>
+  <table>
+    <tr><th>Aspect</th><th>Detail</th></tr>
+    <tr><td>Modalities</td><td>Text → video, Image → video, (generated) Video → video</td></tr>
+    <tr><td>Audio</td><td>Supports generating audio in the output video</td></tr>
+    <tr><td>Remix</td><td>Make targeted adjustments to an existing video instead of regenerating from scratch</td></tr>
+    <tr><td>API style</td><td>Uses the OpenAI <strong>v1 API</strong> schema; <strong>asynchronous job</strong> pattern (create job → poll status → download content)</td></tr>
+    <tr><td>Processing states</td><td><code>queued → preprocessing → running → processing → succeeded</code> (or <code>failed</code>/<code>cancelled</code>)</td></tr>
+    <tr><td>Typical duration</td><td>Generation takes ~1–5 minutes depending on resolution/length</td></tr>
+  </table>
+  <h3>Input modes</h3>
+  <ul>
+    <li><strong>Text prompt only</strong> — create entirely new scenes from a description.</li>
+    <li><strong>Image + text prompt</strong> — animate a still image or use it as the starting frame (good for "bring a product photo to life").</li>
+    <li><strong>Video + text prompt</strong> — extend or modify existing footage (editing generated/source videos).</li>
+  </ul>
+  <h3>Key API parameters</h3>
+  <ul>
+    <li><code>prompt</code>, <code>width</code>/<code>height</code>, <code>n_seconds</code> (duration), <code>n_variants</code> (1–4 alternate interpretations of the same prompt), <code>model</code> (deployment name).</li>
+    <li><code>inpaint_items</code>: array describing reference image/video — includes <code>type</code> (<code>image</code>/<code>video</code>), <code>file_name</code>, <code>frame_index</code> (where the reference should appear in the output, default 0), and <code>crop_bounds</code> (left/top/right/bottom fractions of the frame to use).</li>
+    <li>Image/video reference uploads use <strong>multipart/form-data</strong>, not pure JSON.</li>
+  </ul>
+  <h3>Responsible AI for video</h3>
+  <ul>
+    <li>Sora 2 has built-in Responsible AI protections and <strong>blocks all IP (intellectual property) and photorealistic content</strong> of real/recognizable people by default.</li>
+    <li>Azure layers additional input/output moderation and abuse monitoring on top of the model's own safeguards, consistent with image generation content filtering.</li>
+  </ul>
+  <div class="must-know"><b>Must know:</b> Video generation is strictly <strong>asynchronous</strong> (create job → poll <code>status</code> → fetch generated content by <code>generation_id</code>) — unlike synchronous image generation. Exam scenarios about "editing an existing video with AI" map to Sora 2's <strong>remix / video-to-video (inpaint_items of type "video")</strong> capability, and "animating a still photo" maps to <strong>image-to-video</strong>.</div>
+</section>
+
+<section id="rai">
+  <h2>8. Responsible AI for Multimodal / Visual Content</h2>
+  <p>Microsoft Foundry's content filtering system (built on Azure AI Content Safety) runs on <strong>both prompts and completions/outputs</strong> for core and image-generation models, using classification models to detect and act on harmful content.</p>
+  <h3>Filter categories (severity: safe / low / medium / high)</h3>
+  <table>
+    <tr><th>Category</th><th>Covers</th></tr>
+    <tr><td>Hate and Fairness</td><td>Discriminatory language targeting race, ethnicity, gender identity, sexual orientation, religion, appearance, disability, harassment/bullying.</td></tr>
+    <tr><td>Sexual</td><td>Anatomical/sexual content, nudity/pornography, abuse, child exploitation (always blocked regardless of configured severity).</td></tr>
+    <tr><td>Violence</td><td>Weapons, bullying/intimidation, terrorism/extremism, stalking.</td></tr>
+    <tr><td>Self-Harm</td><td>Content describing or encouraging self-harm.</td></tr>
+  </table>
+  <ul>
+    <li>Optional binary classifiers also detect <strong>jailbreak attempts</strong> and matches to <strong>known protected text/source code</strong> (the latter can be required for Customer Copyright Commitment coverage).</li>
+    <li>Content filtering does <strong>not</strong> apply to Embedding models or audio models like Whisper.</li>
+    <li>Prompts/completions are <strong>not stored</strong> for filtering purposes and are not used to train the filtering system without consent.</li>
+  </ul>
+  <h3>Vision-specific risks to know for the exam</h3>
+  <ul>
+    <li><strong>Indirect prompt injection via images:</strong> text embedded inside an image (e.g., a sign, screenshot, or document photo) can be read by OCR/multimodal models and may contain hidden instructions attempting to hijack the model's behavior — treat extracted/visual text as untrusted input, same as attacker-controlled data, and apply input sanitization/system-prompt isolation.</li>
+    <li><strong>Unsafe or disallowed visual content:</strong> both the input image (for analysis) and the generated image/video output are scanned by the content filter; a blocked output still consumes the request and returns a <code>contentFilter</code> error rather than the asset.</li>
+    <li><strong>IP / photorealistic people in generated media:</strong> Sora 2 explicitly blocks generating photorealistic real/recognizable people and known IP/branded content as a built-in guardrail.</li>
+    <li><strong>Brand/policy enforcement (watermarks, prohibited symbols):</strong> organizations layer custom checks (e.g., Azure AI Content Safety custom categories/blocklists, or post-generation image analysis for logos/watermarks) on top of baseline filters to enforce brand or compliance rules not covered by default categories.</li>
+    <li><strong>Face/biometric restrictions:</strong> reiterate — Face API is Limited Access and barred from US police use; biometric consent/retention obligations fall on the customer.</li>
+  </ul>
+  <div class="tip">Governance pattern across Foundry: <strong>Discover</strong> (red-team/adversarial test for jailbreaks and unsafe visual outputs) → <strong>Protect</strong> (content filters + Guardrails at model and agent runtime) → <strong>Govern</strong> (tracing/monitoring, Defender for Cloud "Risks + alerts" for AI workloads).</div>
+  <div class="must-know"><b>Must know / exam trap:</b> Content filtering runs on <strong>both the input prompt/image and the generated output</strong> — a prompt can pass moderation while the resulting image/video is still blocked afterward (<code>"Generated image/video was filtered as a result of our safety system."</code>). Also remember: <strong>Sexual content involving minors is always blocked and is not configurable</strong>, unlike the other three severity-tunable categories.</div>
+</section>
+
+<footer>
+  Compiled from Microsoft Learn documentation (Azure AI Vision / Microsoft Foundry) for AI-103 exam preparation — November 14, 2026.
+</footer>
+
+</div>
+</body>
+</html>

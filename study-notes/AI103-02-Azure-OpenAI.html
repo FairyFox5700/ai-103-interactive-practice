@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI-103 Study Notes: Azure OpenAI in Microsoft Foundry</title>
+<style>
+  :root{
+    --accent:#0078D4; --accent-dark:#004578; --bg:#f5f7fa; --card:#ffffff;
+    --warn-bg:#fff4e5; --warn-border:#e67e22; --tip-bg:#e8f4fd; --tip-border:#0078D4;
+  }
+  body{font-family:'Segoe UI',Calibri,Arial,sans-serif;background:var(--bg);color:#222;margin:0;padding:0;line-height:1.55;}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 24px 80px;}
+  header.hero{background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;padding:36px 24px;border-radius:0 0 16px 16px;}
+  header.hero h1{margin:0 0 8px;font-size:26px;}
+  header.hero p{margin:0;opacity:.9;font-size:14px;}
+  .badge{display:inline-block;background:rgba(255,255,255,.2);padding:4px 10px;border-radius:12px;font-size:12px;margin-top:10px;margin-right:6px;}
+  .section-nav{background:var(--card);border-radius:10px;padding:16px 22px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin:20px 0;font-size:14px;}
+  .section-nav a{color:var(--accent-dark);text-decoration:none;display:inline-block;margin:3px 10px 3px 0;}
+  .section-nav a:hover{text-decoration:underline;}
+  section{background:var(--card);border-radius:10px;padding:22px 26px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin:22px 0;}
+  section h2{color:var(--accent-dark);border-bottom:2px solid var(--accent);padding-bottom:6px;margin-top:0;font-size:21px;}
+  h3{color:var(--accent-dark);margin-top:22px;font-size:16px;}
+  .retire{background:var(--warn-bg);border-left:5px solid var(--warn-border);padding:14px 18px;border-radius:6px;margin:14px 0;font-size:14px;}
+  .tip{background:var(--tip-bg);border-left:5px solid var(--tip-border);padding:12px 16px;border-radius:6px;margin:12px 0;font-size:13.5px;}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;}
+  th,td{border:1px solid #d8dee4;padding:7px 9px;text-align:left;}
+  th{background:var(--accent);color:#fff;}
+  tr:nth-child(even){background:#f0f4f8;}
+  ul,ol{margin:8px 0;padding-left:22px;}
+  li{margin-bottom:4px;}
+  .keyword{background:#fffbdd;padding:1px 5px;border-radius:4px;font-weight:600;}
+  code{background:#eef1f4;padding:2px 5px;border-radius:4px;font-size:13px;}
+  .must-know{background:#eafaf1;border:1px solid #b7e4c7;border-radius:8px;padding:10px 16px;margin-top:14px;font-size:13.5px;}
+  .must-know b{color:#1e7e34;}
+  footer{text-align:center;color:#888;font-size:12px;margin-top:50px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>AI-103: Developing AI Apps and Agents on Azure</h1>
+  <p>Deep-dive study notes — Azure OpenAI in Microsoft Foundry (models, RAG, prompt engineering, function calling, content filtering, fine-tuning, quotas)</p>
+  <span class="badge">Exam AI-103</span>
+  <span class="badge">Azure OpenAI / Microsoft Foundry Models</span>
+  <span class="badge">Updated 2026-11-14</span>
+</header>
+
+<div class="section-nav">
+  <b>Jump to:</b>
+  <a href="#platform">1. Platform &amp; rebrand</a>
+  <a href="#models">2. Models &amp; deployment types</a>
+  <a href="#rag">3. RAG / grounding your data</a>
+  <a href="#prompt">4. Prompt engineering &amp; parameters</a>
+  <a href="#function">5. Function calling &amp; structured outputs</a>
+  <a href="#eval">6. Evaluation &amp; hallucination detection</a>
+  <a href="#safety">7. Content filtering &amp; responsible AI</a>
+  <a href="#finetune">8. Fine-tuning</a>
+  <a href="#integrate">9. SDKs, auth &amp; connecting apps</a>
+  <a href="#quotas">10. Quotas &amp; rate limits</a>
+</div>
+
+<section id="platform">
+  <h2>1. Platform &amp; the "Microsoft Foundry" rebrand</h2>
+  <p>Azure OpenAI Service documentation has been folded into <span class="keyword">Microsoft Foundry</span> (formerly "Azure AI Foundry" / "Azure AI Studio"). Conceptually, "Azure OpenAI" is now a <i>Foundry Models</i> catalog category — OpenAI models sold directly by Azure — consumed through a <b>Foundry resource</b> and a <b>Foundry project</b>.</p>
+  <ul>
+    <li><b>Foundry resource</b> — the Azure resource (ARM), analogous to the old "Azure OpenAI resource." Has an endpoint like <code>https://YOUR-RESOURCE-NAME.openai.azure.com/openai/v1/</code>.</li>
+    <li><b>Foundry project</b> — a logical workspace inside/under a resource used to organize deployments, agents, evaluations, and connections. Existing hub-based ("classic") projects still work via the <i>Foundry (classic)</i> portal, but new investment is in the new Foundry portal project model.</li>
+    <li><b>Foundry portal</b> — <code>https://ai.azure.com</code> — unified UI for deploying models, building agents, running evaluations, and configuring content filters/guardrails.</li>
+    <li>You can <b>upgrade an existing Azure OpenAI resource to a Foundry resource</b> in place, preserving the endpoint, API keys, and deployments.</li>
+    <li>Foundry unifies <b>agents, models, and tools</b> under one RBAC/networking/policy model, with built-in tracing, monitoring, and evaluation.</li>
+  </ul>
+  <div class="tip">For the exam, treat "Azure OpenAI," "Azure OpenAI in Microsoft Foundry," and "Foundry Models (OpenAI)" as the same underlying service — just evolving branding. API shapes (Chat Completions, Responses, Assistants) are unchanged.</div>
+  <div class="must-know"><b>Must know:</b> A Foundry/Azure OpenAI <i>resource</i> is the billing/endpoint boundary; a <i>deployment</i> is a named instance of a specific model version inside that resource that your app actually calls (you always call a <b>deployment name</b>, not a raw model name, in Chat Completions).</div>
+</section>
+
+<section id="models">
+  <h2>2. Models, model families &amp; deployment types</h2>
+  <h3>Model families (Foundry Models sold directly by Azure)</h3>
+  <table>
+    <tr><th>Family</th><th>Examples</th><th>Use case</th></tr>
+    <tr><td>Flagship / large chat</td><td>GPT-5.x / GPT-6.x series, GPT-4.1, GPT-4o</td><td>General reasoning, chat, complex multimodal tasks</td></tr>
+    <tr><td>Small / cost-efficient</td><td>GPT-4o-mini, GPT-4.1-mini/nano, GPT-5-mini/nano</td><td>High-volume, latency- or cost-sensitive workloads</td></tr>
+    <tr><td>Reasoning ("o-series")</td><td>o-series models, gpt-oss (open-weight)</td><td>Advanced step-by-step problem solving; use Responses/Chat Completions without classic prompt-engineering tricks (no few-shot needed, avoid over-prompting)</td></tr>
+    <tr><td>Code models</td><td>codex-mini, GPT-5.3/5.2/5.1-codex</td><td>Code generation, completion, agentic coding tasks</td></tr>
+    <tr><td>Multimodal</td><td>GPT-4o (vision+audio), GPT-4o audio, Sora (video), image generation models</td><td>Vision input, speech in/out, image/video generation</td></tr>
+    <tr><td>Embeddings</td><td>text-embedding-3-small/large, ada-002</td><td>Convert text → vectors for similarity search / RAG retrieval</td></tr>
+    <tr><td>Audio</td><td>Whisper (speech-to-text), TTS</td><td>Transcription, translation, text-to-speech</td></tr>
+  </table>
+  <p>Model availability varies by <b>region</b> and <b>cloud</b> (public vs. Azure Government). Always check the region-availability table before designing a deployment architecture.</p>
+
+  <h3>Deployment types (apply to Serverless API deployments)</h3>
+  <table>
+    <tr><th>Type</th><th>Billing</th><th>Data processing location</th><th>When to use</th></tr>
+    <tr><td><b>Global Standard</b></td><td>Pay-per-token</td><td>May be processed in <i>any</i> Azure region</td><td>Default starting point — lowest price, broadest region coverage, newest models land here first</td></tr>
+    <tr><td><b>Data Zone Standard</b></td><td>Pay-per-token</td><td>Restricted to a data zone (US, EU, or APAC)</td><td>Data-residency requirement at a zone (not single-region) level</td></tr>
+    <tr><td><b>Standard / Regional Provisioned</b></td><td>Pay-per-token / reserved</td><td>Customer-specified Azure geography</td><td>Strict single-geography residency</td></tr>
+    <tr><td><b>Provisioned Throughput Units (PTU)</b></td><td>Reserved capacity (hourly/monthly commitment)</td><td>Per chosen scope (global/data zone/regional)</td><td>Predictable high-volume, latency-sensitive production workloads needing guaranteed throughput (not shared with other tenants)</td></tr>
+    <tr><td><b>Batch</b></td><td>Discounted, asynchronous</td><td>—</td><td>Large offline jobs with a 24-hour completion window; much cheaper than standard</td></tr>
+    <tr><td><b>Developer</b></td><td>—</td><td>—</td><td>Evaluating a fine-tuned model before committing to a full deployment type</td></tr>
+  </table>
+  <div class="tip"><b>Instant access (preview):</b> for some models you can call them by name directly with no deployment step at all — useful for quick experimentation, but production apps still typically create a deployment for quota control and stability.</div>
+  <div class="must-know"><b>Must know:</b> <b>Standard/Global Standard = pay-as-you-go, shared capacity, variable latency; Provisioned Throughput (PTU) = reserved/dedicated capacity for predictable latency and guaranteed throughput at a higher fixed cost.</b> The exam loves this standard-vs-provisioned tradeoff question.</div>
+</section>
+
+<section id="rag">
+  <h2>3. Retrieval-Augmented Generation (RAG) / grounding your data</h2>
+  <p>RAG lets a model answer using your own enterprise content instead of (or in addition to) what it learned during training — reducing hallucination and enabling up-to-date, proprietary answers with citations.</p>
+
+  <h3>Classic pattern: "Azure OpenAI On Your Data" (retired)</h3>
+  <div class="retire"><b>Retirement notice:</b> <b>Azure OpenAI On Your Data (OYD)</b> — the feature that let you point a Chat Completions call at an Azure AI Search index via the <code>data_sources</code> parameter / <code>/extensions/chat/completions</code> endpoint — <b>retired on October 14, 2026</b> and is no longer supported. If you see legacy exam prep material describing "Add your data" in Azure OpenAI Studio, know that it has been replaced.</div>
+  <p>Conceptually, OYD still illustrates the <b>RAG pattern</b> you must understand for the exam:</p>
+  <ol>
+    <li>User query arrives at the app.</li>
+    <li>App (or the service) retrieves the most relevant chunks from a knowledge store (commonly an <b>Azure AI Search index</b>) using vector, keyword, or hybrid (vector+keyword+semantic re-ranking) search.</li>
+    <li>Retrieved chunks are inserted into the prompt as <b>grounding context</b> alongside the user's question and a system message instructing the model to answer only from the provided content.</li>
+    <li>The model generates a grounded answer, ideally with <b>citations</b> back to source documents.</li>
+  </ol>
+
+  <h3>Current pattern: Foundry IQ Knowledge Bases + Agent Service</h3>
+  <ul>
+    <li><b>Foundry IQ</b> introduces <b>Knowledge Sources</b> (e.g., a Search Index Knowledge Source wrapping an existing Azure AI Search index) attached to a <b>Knowledge Base (KB)</b>.</li>
+    <li>Your app calls the KB's <code>retrieve</code> action directly for grounded, cited answers — replacing the old <code>chat.completions + data_sources</code> call.</li>
+    <li><b>Retrieval modes:</b> <code>auto</code> retrieval starts lightweight and can escalate to LLM-based query planning ("agentic retrieval") if the first pass lacks grounding; <code>answerSynthesis</code> uses a configured model to compose the final cited answer.</li>
+    <li>For richer workflows (multi-tool orchestration, multi-turn conversation state, combining several knowledge sources), attach the KB to a <b>Foundry Agent Service</b> agent instead of calling the KB directly.</li>
+    <li>GA, non-preview alternative for simple extractive retrieval: <b>Azure AI Search agentic retrieval</b> (<code>2026-04-01</code>) — minimal, extractive knowledge-base retrieval where your application still manages answer generation.</li>
+  </ul>
+  <div class="tip">Exam framing: understand RAG as a <i>pattern</i> — embed documents → store vectors in a search index → retrieve top-k relevant chunks → augment the prompt → generate a grounded answer with citations. The specific product name wrapping that pattern (On Your Data vs. Foundry IQ Knowledge Base vs. a custom app-level implementation) can change, but the architecture is what's tested.</div>
+  <h3>Why RAG over fine-tuning for "knowing your data"?</h3>
+  <ul>
+    <li>RAG is for injecting <b>fresh/private facts</b> at query time — no retraining needed when documents change.</li>
+    <li>Fine-tuning changes <b>behavior/style/format</b>, not facts — it does not reliably teach new, retrievable factual knowledge and does not eliminate hallucination.</li>
+    <li>Many production systems combine both: RAG for facts + fine-tuning for tone/format/tool-use patterns.</li>
+  </ul>
+  <div class="must-know"><b>Must know:</b> Azure OpenAI <b>On Your Data retired Oct 14, 2026</b>; the supported path is a Foundry IQ <b>Knowledge Base</b> built on a <b>Knowledge Source</b> (commonly wrapping your existing Azure AI Search index), called via <code>retrieve</code>, optionally via an Agent Service agent — this is the concept the exam now expects for "implement RAG in an application."</div>
+</section>
+
+<section id="prompt">
+  <h2>4. Prompt engineering &amp; model parameters</h2>
+  <h3>Prompt components (Chat Completions roles)</h3>
+  <ul>
+    <li><b>system</b> — sets persona, tone, rules, and constraints for the whole conversation (e.g., "You are a factual, concise support agent for Contoso").</li>
+    <li><b>user</b> — the end-user's input/question.</li>
+    <li><b>assistant</b> — prior model responses, also used to seed <b>few-shot examples</b> of desired output style.</li>
+  </ul>
+  <h3>Core techniques</h3>
+  <ul>
+    <li><b>Instructions</b> — explicit, structured instructions (bulleted requirements) generally outperform a single vague sentence.</li>
+    <li><b>Few-shot prompting</b> — include 2–5 example input/output pairs in the prompt to steer format/style without fine-tuning.</li>
+    <li><b>Primary content separation</b> — clearly delimit instructions vs. the text to act on (e.g., triple quotes, XML-like tags) so the model doesn't confuse data with commands (also mitigates prompt injection).</li>
+    <li><b>Chain-of-thought style cues</b> ("think step by step") help classic GPT chat models on reasoning-heavy tasks.</li>
+  </ul>
+  <div class="tip">Reasoning models (gpt-5/o-series) are explicitly called out as <b>not needing classic prompt-engineering tricks</b> like elaborate few-shot examples or "think step by step" — over-engineering the prompt can actually hurt these models. Give them a clear goal and let internal reasoning do the work.</div>
+
+  <h3>Key inference parameters</h3>
+  <table>
+    <tr><th>Parameter</th><th>Effect</th><th>Guidance</th></tr>
+    <tr><td><code>temperature</code></td><td>Controls randomness (0–2 typical range, often 0–1 used)</td><td>Lower (≈0) = deterministic/factual; higher = more creative/varied. Use low values for extraction, classification, code.</td></tr>
+    <tr><td><code>top_p</code></td><td>Nucleus sampling — restricts token choices to the smallest set whose cumulative probability ≥ top_p</td><td>Alternative to temperature; Microsoft recommends changing <b>one of temperature or top_p, not both</b>.</td></tr>
+    <tr><td><code>max_tokens</code> / <code>max_completion_tokens</code></td><td>Caps length of the generated output</td><td>Also protects against runaway cost/latency; too low truncates answers mid-thought.</td></tr>
+    <tr><td><code>frequency_penalty</code></td><td>Penalizes tokens based on how often they've already appeared</td><td>Reduces repetition in long outputs.</td></tr>
+    <tr><td><code>presence_penalty</code></td><td>Penalizes tokens that have appeared at all, encouraging new topics</td><td>Push toward more diverse content.</td></tr>
+    <tr><td><code>stop</code></td><td>Sequence(s) that end generation</td><td>Useful for structured/delimited outputs.</td></tr>
+    <tr><td><code>seed</code></td><td>Requests (best-effort) reproducible output</td><td>Combine with low temperature for repeatable test scenarios.</td></tr>
+    <tr><td><code>n</code></td><td>Number of completions to generate per prompt</td><td>Useful for sampling/voting strategies; multiplies cost.</td></tr>
+  </table>
+  <div class="must-know"><b>Must know:</b> Adjust <b>either</b> <code>temperature</code> <b>or</b> <code>top_p</code> for a given call — never both at once — and use low temperature/top_p for deterministic, factual, or extraction-style tasks (this exact wording shows up as an exam distractor).</div>
+</section>
+
+<section id="function">
+  <h2>5. Function calling &amp; structured outputs</h2>
+  <h3>Function (tool) calling</h3>
+  <p>Function calling lets the model decide, based on the conversation, to invoke one of the <b>functions/tools you declared</b> in the request — the model never executes code itself; it returns a JSON object describing which function to call and with which arguments, and <b>your application</b> executes it.</p>
+  <ol>
+    <li>Send the Chat Completions request with a <code>tools</code> array (each with a <code>name</code>, <code>description</code>, and JSON Schema <code>parameters</code>) and <code>tool_choice</code> (e.g., <code>"auto"</code>).</li>
+    <li>If the model wants to call a tool, the response contains <code>tool_calls</code> with a function name and a JSON-encoded <code>arguments</code> string — your code parses it and calls your real function/API.</li>
+    <li>Append a message with <code>role: "tool"</code>, the <code>tool_call_id</code>, and the function's result, then call the Chat Completions API <i>again</i> so the model can produce the final natural-language answer.</li>
+  </ol>
+  <p><b>Parallel function calling</b> lets the model request multiple tool calls in a single response (e.g., "What's the time in Tokyo, Paris, and SF?" → 3 tool_calls in one turn).</p>
+  <div class="tip">Function calling via the newer <b>Responses API</b> uses a different request/response shape than Chat Completions — know that both APIs exist and that function calling is not identical across them.</div>
+
+  <h3>Structured outputs</h3>
+  <ul>
+    <li><b>Structured outputs</b> force the model to strictly conform to a <b>JSON Schema</b> you supply (via <code>response_format</code> in Chat Completions, or <code>text.format</code> in the Responses API).</li>
+    <li>This supersedes the older <b>JSON mode</b>, which only guaranteed syntactically valid JSON but <i>not</i> conformance to your specific schema.</li>
+    <li>In Python, commonly paired with <b>Pydantic</b> models passed via <code>client.beta.chat.completions.parse(..., response_format=MyModel)</code>, returning a <code>.parsed</code> object.</li>
+    <li>Primary use cases: reliable <b>function-calling argument generation</b>, structured data extraction, and multi-step agentic workflows that need predictable shapes between steps.</li>
+  </ul>
+  <div class="must-know"><b>Must know:</b> <b>Structured outputs guarantee schema conformance (strict JSON Schema match); JSON mode only guarantees valid JSON syntax.</b> Also remember the 3-step function-calling loop: declare tools → model emits <code>tool_calls</code> → app runs the function and feeds the result back as a <code>role: "tool"</code> message for a final answer.</div>
+</section>
+
+<section id="eval">
+  <h2>6. Evaluating models &amp; apps (hallucination, relevance, quality, safety)</h2>
+  <p>Foundry's <b>Observability</b> capability provides built-in <b>evaluations</b> and tracing for both raw models and full agent/app flows, viewable as dashboards in the Foundry portal.</p>
+  <h3>Common evaluation dimensions</h3>
+  <ul>
+    <li><b>Groundedness / fabrication detection</b> — does the answer stay faithful to the retrieved/provided source content, or does it hallucinate facts not present in context? Critical for RAG apps.</li>
+    <li><b>Relevance</b> — does the response actually address the user's query/intent?</li>
+    <li><b>Coherence &amp; fluency</b> — is the output well-formed, logically structured language?</li>
+    <li><b>Similarity</b> — how close is a generated answer to a reference/ground-truth answer (useful for regression testing prompts).</li>
+    <li><b>Safety metrics</b> — violence, hate/unfairness, sexual, self-harm content, and protected-material/IP risk, scored similarly to content-filter categories but applied as an offline evaluation step.</li>
+  </ul>
+  <p>Evaluations can run as <b>AI-assisted (model-graded)</b> metrics (another LLM scores the output against a rubric) or <b>traditional NLP metrics</b> (e.g., BLEU/ROUGE-style string overlap) — AI-assisted graders are generally preferred for nuanced qualities like groundedness.</p>
+  <div class="tip">Tracing captures the full chain of a request (retrieval calls, tool calls, intermediate model calls) so you can debug exactly where a hallucination or irrelevant answer was introduced — not just inspect the final output.</div>
+  <div class="must-know"><b>Must know:</b> <b>Groundedness</b> is the specific evaluation metric name for hallucination/fabrication detection relative to supplied context — expect the exam to test that you can match "detecting fabricated/unsupported claims" to this term.</div>
+</section>
+
+<section id="safety">
+  <h2>7. Content filtering &amp; responsible AI guardrails</h2>
+  <p>Azure OpenAI/Foundry Models include a built-in content filtering system powered by <b>Azure AI Content Safety</b>, which runs <b>both the prompt and the completion</b> through classification models to detect and block harmful content.</p>
+  <h3>Filter categories (neural multi-class classifiers)</h3>
+  <table>
+    <tr><th>Category</th><th>Covers</th></tr>
+    <tr><td><b>Hate and Fairness</b></td><td>Discriminatory language toward protected attributes: race, ethnicity, gender identity, sexual orientation, religion, disability, appearance, harassment/bullying</td></tr>
+    <tr><td><b>Sexual</b></td><td>Sexual anatomy/acts, erotic content, abuse, child exploitation (zero-tolerance)</td></tr>
+    <tr><td><b>Violence</b></td><td>Physical harm, weapons, extremism, stalking</td></tr>
+    <tr><td><b>Self-Harm</b></td><td>Suicide, self-injury related language</td></tr>
+  </table>
+  <p>Each category is scored across <b>four severity levels: safe, low, medium, high</b>. "Safe" is annotated but never filtered/blocked, and isn't configurable. You can configure thresholds for low/medium/high per category (within allowed limits for your subscription tier).</p>
+  <h3>Additional optional classifiers</h3>
+  <ul>
+    <li><b>Jailbreak risk detection</b> — flags attempts to bypass system instructions/safety guardrails (prompt injection style attacks).</li>
+    <li><b>Protected material (text &amp; code)</b> — detects verbatim reproduction of known copyrighted text or source code; using the <b>protected material code model</b> may be required for <i>Customer Copyright Commitment</i> coverage.</li>
+  </ul>
+  <h3>Important scope notes</h3>
+  <ul>
+    <li>Content filtering <b>does not apply</b> to <b>embeddings models</b> or <b>audio models</b> such as Whisper.</li>
+    <li>Prompts/completions are <b>not stored</b> for content-filter purposes and are <b>not used to train/retrain</b> the filtering models without consent.
+    <li>Filtering can act on both the <b>input prompt</b> (blocking the call before it reaches the model) and the <b>output completion</b> (blocking/withholding a generated response).</li>
+    <li>Beyond content filtering, Azure OpenAI performs separate <b>abuse monitoring</b> to detect usage patterns that may violate product terms.</li>
+  </ul>
+  <div class="tip">Governance: Foundry lets you apply <b>Microsoft Entra identity, RBAC, content filters, and network isolation</b> centrally as part of the "Foundry control plane," so filtering policy can be managed at the platform level, not just per API call.</div>
+  <div class="must-know"><b>Must know:</b> There are exactly <b>4 default harm categories (Hate &amp; Fairness, Sexual, Violence, Self-Harm)</b>, each with <b>4 severity levels (safe/low/medium/high)</b>, and content filtering <b>does not cover embeddings or audio/Whisper models</b> — a classic exam trap.</div>
+</section>
+
+<section id="finetune">
+  <h2>8. Fine-tuning</h2>
+  <p>Fine-tuning (<b>supervised fine-tuning, SFT</b>, via <i>Managed Training</i> in Foundry) further trains a supported base model on your own labeled examples to change its <b>behavior, tone, format-following, or domain specialization</b> — it is not a substitute for RAG when you need the model to know new facts.</p>
+  <h3>Data preparation</h3>
+  <ul>
+    <li>Separate <code>training.jsonl</code> and <code>validation.jsonl</code> files, one JSON object per line, each containing a <code>messages</code> array in the same <b>system/user/assistant</b> shape used by Chat Completions.</li>
+    <li>Keep a held-out test set separate from both training and validation data.</li>
+    <li>Specialized formats exist for <b>vision fine-tuning</b> and <b>tool/function-calling fine-tuning</b>.</li>
+  </ul>
+  <h3>Key hyperparameters</h3>
+  <table>
+    <tr><th>Hyperparameter</th><th>Description</th></tr>
+    <tr><td><code>batch_size</code></td><td>Number of examples processed per forward/backward pass; larger batches = fewer, lower-variance updates</td></tr>
+    <tr><td><code>learning_rate_multiplier</code></td><td>Scales the learning rate; smaller values can reduce overfitting</td></tr>
+    <tr><td><code>n_epochs</code></td><td>Number of full passes over the training set; more epochs can improve fit but risks overfitting</td></tr>
+  </table>
+  <p>Most hyperparameters can be left as <code>auto</code> for the service to choose sensible defaults.</p>
+  <h3>Workflow</h3>
+  <ol>
+    <li>Prepare/upload training + validation data.</li>
+    <li>Choose a supported base model and training region, and a <b>training type</b> (e.g., SFT; some models also support preference-based tuning such as DPO at a conceptual level — aligning model outputs to preferred vs. rejected response pairs rather than single "correct" labels).</li>
+    <li>Configure hyperparameters, start the job, and monitor training/validation loss.</li>
+    <li>Once complete, <b>deploy the fine-tuned model</b> like any other model deployment (it gets its own deployment name) — commonly first evaluated using the <b>Developer</b> deployment type before a full production deployment type is chosen.</li>
+  </ol>
+  <div class="tip">Required Foundry RBAC: <b>Foundry User</b> role is enough to run training; you need <b>Foundry Owner</b> to also deploy the resulting fine-tuned model.</div>
+  <div class="must-know"><b>Must know:</b> Fine-tuning data uses the <b>same chat message schema (system/user/assistant)</b> as normal Chat Completions calls, split into <code>training.jsonl</code>/<code>validation.jsonl</code>; fine-tuning changes <b>style/behavior</b>, while RAG supplies <b>facts</b> — don't conflate the two on the exam.</div>
+</section>
+
+<section id="integrate">
+  <h2>9. SDKs, authentication &amp; connecting an app to a Foundry project</h2>
+  <ul>
+    <li><b>Endpoint shape:</b> Foundry/Azure OpenAI resources expose an OpenAI-compatible endpoint, e.g. <code>https://YOUR-RESOURCE-NAME.openai.azure.com/openai/v1/</code>, usable directly with the official <b>OpenAI Python/JS SDK</b> (not only an Azure-specific SDK) by overriding <code>base_url</code>.</li>
+    <li><b>Authentication options:</b>
+      <ul>
+        <li><b>API key</b> — simplest, passed as <code>api_key</code>; less secure, avoid in production/shared code.</li>
+        <li><b>Microsoft Entra ID (Azure AD)</b> — recommended for production; use <code>DefaultAzureCredential</code> + <code>get_bearer_token_provider</code> (scope <code>https://ai.azure.com/.default</code>) to mint a bearer token used as the API key. Requires a <b>custom subdomain</b> configured on the resource.</li>
+      </ul>
+    </li>
+    <li><b>APIs available:</b> <b>Chat Completions API</b> (classic, widely supported), the newer <b>Responses API</b> (different request/response shape, used for newest features like certain function-calling and computer-use flows), and the <b>Assistants/Agent</b> patterns for stateful, tool-using agents.</li>
+    <li><b>Connecting to a Foundry project:</b> apps/agents reference a project's connections (model deployments, Azure AI Search, storage, etc.) so that swapping a backing resource doesn't require rewriting application code — this is the basis of <b>Foundry Agent Service</b> "hosted agents" and "prompt agents."</li>
+    <li><b>Foundry Toolbox:</b> built-in tools, memory, and retrieval components you can attach to an agent without writing custom integration code.</li>
+  </ul>
+  <div class="must-know"><b>Must know:</b> You authenticate with <b>either an API key or a Microsoft Entra ID bearer token</b>; Entra ID is the Microsoft-recommended production approach and requires a <b>custom subdomain</b> on the Foundry/Azure OpenAI resource — a frequently tested prerequisite.</div>
+</section>
+
+<section id="quotas">
+  <h2>10. Quotas &amp; rate limits (TPM / RPM)</h2>
+  <ul>
+    <li>Quota is expressed in <b>Tokens-Per-Minute (TPM)</b> allocated to a deployment; RPM (requests per minute) is derived automatically from the TPM setting.</li>
+    <li><b>Quota is scoped at the Azure subscription level</b>, not the tenant level — it is the top-level boundary for how much capacity you can allocate across all your deployments.</li>
+    <li>As of mid-2026, Foundry introduced <b>subscription-level shared quota pools</b>: all <b>Global Standard</b> deployments of the <i>same model + version</i> across every region in a subscription draw from one shared pool; <b>Data Zone Standard</b> deployments share a pool per data zone (US/EU/APAC).</li>
+    <li><b>Quota tiers (Free, Tier 1–6)</b> automatically increase available quota as usage grows, reducing manual quota-increase requests; tier assignment depends on usage history and commercial relationship (e.g., Enterprise Agreement). You can opt out of automatic tier upgrades.</li>
+    <li>Exceeding TPM/RPM limits returns an <b>HTTP 429 (Too Many Requests)</b> — applications should implement exponential backoff/retry.</li>
+    <li><b>Provisioned Throughput (PTU)</b> deployments are not subject to the same shared-pool token throttling model — you reserve dedicated capacity instead, trading flexibility for guaranteed throughput/latency.</li>
+  </ul>
+  <div class="tip">When designing for scale, remember quota is requested/managed per subscription and (for standard deployments) now pooled per model+version — deploying the same model across many regions doesn't multiply your quota automatically.</div>
+  <div class="must-know"><b>Must know:</b> Quota is enforced at the <b>subscription level</b> (not per-resource, not per-tenant), is measured primarily via <b>TPM</b>, and throttled requests return <b>HTTP 429</b> — expect the exam to test this scope level and the correct retry behavior.</div>
+</section>
+
+<footer>
+  Compiled from Microsoft Learn documentation (Azure AI Foundry / Azure OpenAI, Foundry Models, content filtering, fine-tuning, function calling, structured outputs, quotas &amp; limits, and Foundry IQ migration guidance) — current as of 2026-11-14. For the authoritative, most current detail, always cross-check <code>learn.microsoft.com/azure/foundry</code>.
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI-103 Study Notes: Azure AI Content Understanding</title>
+<style>
+  :root{
+    --accent:#0078D4; --accent-dark:#004578; --bg:#f5f7fa; --card:#ffffff;
+    --warn-bg:#fff4e5; --warn-border:#e67e22; --tip-bg:#e8f4fd; --tip-border:#0078D4;
+  }
+  body{font-family:'Segoe UI',Calibri,Arial,sans-serif;background:var(--bg);color:#222;margin:0;padding:0;line-height:1.55;}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 24px 80px;}
+  header.hero{background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;padding:36px 24px;border-radius:0 0 16px 16px;}
+  header.hero h1{margin:0 0 8px;font-size:26px;}
+  header.hero p{margin:0;opacity:.9;font-size:14px;}
+  .badge{display:inline-block;background:rgba(255,255,255,.2);padding:4px 10px;border-radius:12px;font-size:12px;margin-top:10px;margin-right:6px;}
+  .section-nav{background:var(--card);border-radius:10px;padding:16px 22px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin:20px 0;font-size:14px;}
+  .section-nav a{color:var(--accent-dark);text-decoration:none;display:inline-block;margin:3px 10px 3px 0;}
+  .section-nav a:hover{text-decoration:underline;}
+  section{background:var(--card);border-radius:10px;padding:22px 26px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin:22px 0;}
+  section h2{color:var(--accent-dark);border-bottom:2px solid var(--accent);padding-bottom:6px;margin-top:0;font-size:21px;}
+  h3{color:var(--accent-dark);margin-top:22px;font-size:16px;}
+  .retire{background:var(--warn-bg);border-left:5px solid var(--warn-border);padding:14px 18px;border-radius:6px;margin:14px 0;font-size:14px;}
+  .tip{background:var(--tip-bg);border-left:5px solid var(--tip-border);padding:12px 16px;border-radius:6px;margin:12px 0;font-size:13.5px;}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;}
+  th,td{border:1px solid #d8dee4;padding:7px 9px;text-align:left;}
+  th{background:var(--accent);color:#fff;}
+  tr:nth-child(even){background:#f0f4f8;}
+  ul,ol{margin:8px 0;padding-left:22px;}
+  li{margin-bottom:4px;}
+  .keyword{background:#fffbdd;padding:1px 5px;border-radius:4px;font-weight:600;}
+  code{background:#eef1f4;padding:2px 5px;border-radius:4px;font-size:13px;}
+  .must-know{background:#eafaf1;border:1px solid #b7e4c7;border-radius:8px;padding:10px 16px;margin-top:14px;font-size:13.5px;}
+  .must-know b{color:#1e7e34;}
+  footer{text-align:center;color:#888;font-size:12px;margin-top:50px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>Azure AI Content Understanding (Foundry Tools)</h1>
+  <p>AI-103: Developing AI Apps and Agents on Azure — high-priority topic, named explicitly in both the <strong>Computer Vision</strong> and <strong>Information Extraction</strong> exam domains.</p>
+  <span class="badge">Generative AI service</span>
+  <span class="badge">Multimodal: doc / image / audio / video</span>
+  <span class="badge">Part of Microsoft Foundry</span>
+  <span class="badge">GA API: 2025-11-01</span>
+</header>
+
+<div class="section-nav">
+  <a href="#overview">1. What It Is</a>
+  <a href="#components">2. Core Components &amp; Pipeline</a>
+  <a href="#analyzers">3. Analyzers &amp; Templates</a>
+  <a href="#modes">4. Pipeline Modes: Standard vs Agentic ("Pro")</a>
+  <a href="#document">5. Document Modality</a>
+  <a href="#image">6. Image Modality</a>
+  <a href="#audio">7. Audio Modality</a>
+  <a href="#video">8. Video Modality</a>
+  <a href="#compare">9. vs Document Intelligence / Vision / Custom Vision</a>
+  <a href="#rai">10. Responsible AI &amp; Data Handling</a>
+</div>
+
+<section id="overview">
+  <h2>1. What Is Azure AI Content Understanding?</h2>
+  <p>Azure Content Understanding is a <span class="keyword">Foundry Tool</span> (a packaged capability inside the <strong>Microsoft Foundry resource</strong> in the Azure portal) that uses <strong>generative AI</strong> to process and ingest unstructured, multimodal content — <strong>documents, images, audio, and video</strong> — and turn it into a <strong>user-defined structured output</strong> (JSON matching a schema, or clean Markdown). It is the generative-AI evolution of content extraction, sitting alongside (not strictly replacing) deterministic services like Azure AI Document Intelligence.</p>
+  <h3>Why it matters / key benefits</h3>
+  <ul>
+    <li><strong>Simplifies field extraction:</strong> define a schema (fields + descriptions + types) — no complex prompt engineering required.</li>
+    <li><strong>Confidence scores + grounding:</strong> enables straight-through automated processing while routing low-confidence/ungrounded results to human review.</li>
+    <li><strong>Classification:</strong> can classify/route content types before extraction, in a unified Analyze API call.</li>
+    <li><strong>Prebuilt, industry-specific analyzers:</strong> tax prep, procurement, contracts, call-center analytics, media asset management, and more.</li>
+  </ul>
+  <h3>Primary use cases (exam-relevant)</h3>
+  <ul>
+    <li><strong>Intelligent Document Processing (IDP):</strong> invoices, contracts, claims.</li>
+    <li><strong>Agentic applications:</strong> converts messy multimodal files into predictable, standardized inputs (clean Markdown for reasoning, or schema-aligned key-value JSON with confidence/grounding) for agent decision automation.</li>
+    <li><strong>Search / Retrieval-Augmented Generation (RAG):</strong> ingest any modality into a search index; figure description support improves retrieval over charts/diagrams.</li>
+    <li><strong>Robotic Process Automation (RPA):</strong> structured data feeding automated business workflows.</li>
+    <li><strong>Analytics &amp; reporting</strong> from extracted structured fields.</li>
+  </ul>
+  <div class="tip">Content Understanding requires a <strong>Microsoft Foundry resource</strong> (not a standalone Cognitive Service resource) and you must bring your own deployed <strong>generative (LLM) and embedding model</strong> for most analyzer scenarios — the service orchestrates these Foundry models rather than hosting its own fixed model.</div>
+  <div class="must-know"><b>Must know:</b> Content Understanding = generative AI service that converts unstructured multimodal content into <em>structured output</em> (JSON schema) or <em>clean Markdown</em> via user-defined <strong>analyzers</strong>, with built-in confidence scores &amp; grounding for automation.</div>
+</section>
+
+<section id="components">
+  <h2>2. Core Pipeline Components</h2>
+  <p>The Content Understanding framework moves content through these stages, left to right:</p>
+  <table>
+    <tr><th>Component</th><th>Purpose</th></tr>
+    <tr><td><strong>Inputs</strong></td><td>Document, image, audio, or video source content.</td></tr>
+    <tr><td><strong>Analyzer</strong></td><td>Configuration object defining extraction settings, field schema, and model deployments. Prebuilt or custom.</td></tr>
+    <tr><td><strong>Content extraction</strong></td><td>OCR, selection marks, barcodes, formulas, layout (paragraphs/tables/sections); for audio/video: transcription + key visual elements.</td></tr>
+    <tr><td><strong>Segmentation</strong></td><td>Splits documents/videos into logical chunks (e.g., by document type, or video scenes). Controlled via <code>enableSegment</code>.</td></tr>
+    <tr><td><strong>Field extraction</strong></td><td>Produces structured key-value pairs via three methods: <strong>Extract</strong> (verbatim values, documents only), <strong>Classify</strong> (categorize into enum values), <strong>Generate</strong> (freely generated/summarized values).</td></tr>
+    <tr><td><strong>Confidence scores</strong></td><td>0–1 reliability score per field. Enabled via <code>estimateFieldSourceAndConfidence</code>.</td></tr>
+    <tr><td><strong>Grounding</strong></td><td>Maps each extracted value back to its source location/region — supports human-in-the-loop verification.</td></tr>
+    <tr><td><strong>Contextualization</strong></td><td>Prepares context for the generative model and post-processes its output (normalization, formatting, confidence computation).</td></tr>
+    <tr><td><strong>Foundry models</strong></td><td>Your own deployed LLM + embedding model deployments that power generation, figure analysis, etc.</td></tr>
+    <tr><td><strong>Structured output</strong></td><td>Final result as Markdown (search/RAG) or JSON matching your schema (automation/analytics).</td></tr>
+  </table>
+  <h3>Portals</h3>
+  <ul>
+    <li><strong>Content Understanding in Microsoft Foundry portal</strong> — build advanced agentic workflows with the Content Understanding tool.</li>
+    <li><strong>Content Understanding Studio</strong> — complementary no-code/low-code UX for building and testing analyzers.</li>
+  </ul>
+  <div class="must-know"><b>Must know:</b> Field extraction has exactly <strong>three methods</strong> — <code>Extract</code> (verbatim, documents only), <code>Classify</code> (predefined categories), <code>Generate</code> (freeform generative output). Know which method applies to a given exam scenario (e.g., "classify call sentiment" = Classify; "summarize a call" = Generate; "pull invoice date" = Extract).</div>
+</section>
+
+<section id="analyzers">
+  <h2>3. Analyzers &amp; Templates</h2>
+  <p>An <strong>analyzer</strong> is the core configurable object: it defines content-extraction settings, the field schema, and which models to use. Once configured, it applies consistently to every incoming file.</p>
+  <h3>Analyzer categories</h3>
+  <table>
+    <tr><th>Category</th><th>Purpose</th><th>Examples</th></tr>
+    <tr><td><strong>Content extraction analyzers</strong></td><td>OCR + layout only, no field schema, no LLM required.</td><td><code>prebuilt-read</code> (basic OCR), <code>prebuilt-layout</code> (+ tables, structure, figures, signatures), <code>prebuilt-digitalParse</code> (parses native file structure, for digital-born files not scans)</td></tr>
+    <tr><td><strong>Base analyzers</strong></td><td>Foundational per-modality processing; used only as a <code>baseAnalyzerId</code> parent when building a custom analyzer.</td><td><code>prebuilt-document</code>, <code>prebuilt-image</code>, <code>prebuilt-audio</code>, <code>prebuilt-video</code></td></tr>
+    <tr><td><strong>RAG analyzers</strong></td><td>Optimized for retrieval — markdown + semantic chunking output.</td><td><code>prebuilt-documentSearch</code>, <code>prebuilt-imageSearch</code>, <code>prebuilt-audioSearch</code>, <code>prebuilt-videoSearch</code></td></tr>
+    <tr><td><strong>Domain-specific analyzers</strong></td><td>Preconfigured schemas for common industry document types.</td><td>invoices/receipts/POs, US tax forms (1040, W-2…), contracts, ID documents, bank/credit statements, US mortgage docs, pay stubs, <code>prebuilt-callCenter</code></td></tr>
+    <tr><td><strong>Utility analyzers</strong></td><td>Meta-tools for schema discovery / generic KV extraction.</td><td><code>prebuilt-documentFieldSchema</code> (propose a schema), <code>prebuilt-documentFields</code> (generic key-value extraction)</td></tr>
+  </table>
+  <h3>Customizing analyzers</h3>
+  <ul>
+    <li>Every prebuilt analyzer can be used <strong>as-is</strong>, or as a <strong>template</strong>: <code>GET /analyzers/prebuilt-idDocument</code> returns its JSON definition, which you edit and <code>PUT</code> to a new analyzer ID (e.g., <code>PUT /analyzers/prebuilt-myIdDocument</code>).</li>
+    <li>Custom analyzers for document/image/audio/video <strong>must</strong> derive from exactly one of the four base analyzers via <code>baseAnalyzerId</code>.</li>
+    <li>Custom analyzers can be improved with <strong>labeled training examples</strong> (sample documents with correct field values) to boost precision.</li>
+    <li>Content Understanding Studio and the Foundry portal provide a no-code experience to design schemas.</li>
+  </ul>
+  <div class="tip">Prebuilt analyzer <em>definitions can change</em> between API versions. For production, copy a prebuilt analyzer into your own custom analyzer ID instead of calling the prebuilt one directly, so behavior stays stable.</div>
+  <div class="must-know"><b>Must know / exam trap:</b> Custom analyzers are created by specifying a <code>baseAnalyzerId</code> from the four <strong>base analyzers</strong> (document/image/audio/video) — not from a RAG or domain-specific analyzer. Prebuilt analyzers can still be used as editable <em>templates</em> by GET-then-PUT of their JSON definition.</div>
+</section>
+
+<section id="modes">
+  <h2>4. Pipeline Modes: Standard (Single-Task) vs Advanced "Pro"/Agentic Mode</h2>
+  <p>Content Understanding supports two broad processing approaches, important for exam questions contrasting simple extraction vs. complex reasoning:</p>
+  <h3>Standard / single-task pipeline (default)</h3>
+  <ul>
+    <li>Directly extracts, classifies, or generates each field from the obvious location in the content — one task, one pass.</li>
+    <li>Appropriate for straightforward field extraction where the answer is explicitly present (e.g., pulling an invoice date, a total, a customer name).</li>
+    <li>Lower cost/latency than advanced reasoning.</li>
+  </ul>
+  <h3>Advanced reasoning pipeline — "Pro mode" (now documented as <code>Agentic mode</code>, preview)</h3>
+  <ul>
+    <li>Used when the answer <strong>isn't directly present</strong> in one place and must be <strong>constructed from evidence</strong> spread across the document.</li>
+    <li>Capabilities: <strong>multistep reasoning</strong> (connect facts across sections), <strong>calculations</strong> (totals, reconciliations not explicitly stated), <strong>validation</strong> (check values against conditions/field descriptions), <strong>visual analysis</strong> of complex tables/figures/forms, and still returns <strong>structured output</strong> matching your schema.</li>
+    <li>Enabled with API version <code>2026-06-01-preview</code> by setting <code>config.workflow = "agentic"</code> on a document analyzer (vs. <code>"default"</code>, which lets the service auto-choose standard vs. advanced based on configuration).</li>
+    <li>Applies the <strong>highest reasoning effort</strong>; initial preview supports <strong>one input file per request</strong> (which may itself contain multiple logically related documents, e.g., a contract + its appendices).</li>
+    <li>Not a replacement for human review in high-impact scenarios.</li>
+  </ul>
+  <div class="tip">Exam objectives may use the older marketing term <strong>"pro mode"</strong> for this advanced/multistep reasoning pipeline — current Microsoft Learn docs call it <strong>Agentic mode</strong>. Treat them as the same concept: standard single-task extraction vs. advanced multistep reasoning over evidence.</div>
+  <div class="must-know"><b>Must know:</b> Choose the <strong>standard pipeline</strong> when the field value is explicitly stated in the content; choose the <strong>advanced/agentic ("pro") pipeline</strong> when the answer requires calculation, cross-reference, or validation across multiple parts of a document.</div>
+</section>
+
+<section id="document">
+  <h2>5. Document Modality</h2>
+  <p>Document analyzers combine <strong>deterministic extraction</strong> (OCR/layout, inherited from Document Intelligence techniques) with <strong>LLM-powered</strong> field extraction for complex, multimodal, unstructured content.</p>
+  <h3>Content extraction capabilities</h3>
+  <ul>
+    <li><strong>Text</strong>: multilingual, printed + handwritten.</li>
+    <li><strong>Selection marks</strong> (checkboxes), <strong>barcodes</strong> (12+ types), <strong>mathematical formulas</strong> (LaTeX), <strong>images/figures/diagrams/charts</strong> with captions, <strong>hyperlinks</strong>, <strong>annotations</strong> (strikethrough/underline/highlight), <strong>signatures</strong> (location + recognized text), <strong>document metadata</strong> (author, creation date, title).</li>
+    <li><strong>Structure analysis</strong>: paragraphs, tables (including spanning cells/multipage), hierarchical sections/headers.</li>
+    <li><strong>Extraction mode</strong> (<code>extractionMode</code>): choose <strong>layout-aware</strong> extraction (tables/sections/reading order matter) or faster <strong>text-only</strong> extraction (clean Markdown for RAG ingestion).</li>
+  </ul>
+  <h3>Field extraction</h3>
+  <ul>
+    <li>Three methods again: <strong>Extract</strong>, <strong>Classify</strong>, <strong>Generate</strong>.</li>
+    <li>Confidence + grounding is <strong>opt-in</strong>: set <code>estimateFieldSourceAndConfidence = true</code> analyzer-wide, or <code>estimateSourceAndConfidence = true</code> per field.</li>
+    <li>Typed values (dates, numbers) are <strong>automatically normalized</strong> to canonical format — not configurable.</li>
+    <li><strong>Agentic mode</strong> (see section 4) available for documents requiring multistep reasoning.</li>
+  </ul>
+  <div class="must-know"><b>Must know:</b> Document Intelligence capabilities (deterministic, high-accuracy OCR/layout for structured forms) are <em>part of</em> Content Understanding's document pipeline — Content Understanding adds the LLM-powered layer on top for unstructured/multimodal content and agent-ready output.</div>
+</section>
+
+<section id="image">
+  <h2>6. Image Modality</h2>
+  <p>Standardizes extraction of data from images via a user-defined schema (fields, descriptions, output types).</p>
+  <h3>Use cases</h3>
+  <ul>
+    <li><strong>RAG</strong>: extract details from images to power chat/search.</li>
+    <li><strong>Financial analysis / BI</strong>: analyze charts and trend visuals for reporting.</li>
+    <li><strong>Manufacturing quality control</strong>: detect defects/anomalies (scratches, cracks, misalignment).</li>
+    <li><strong>Shelf analysis / inventory management</strong>: detect, count, and describe retail products.</li>
+  </ul>
+  <h3>Key benefits</h3>
+  <ul>
+    <li>Structured data integrates easily with CRM/ERP/databases.</li>
+    <li>Targeted extraction (only the fields you need) improves accuracy and cost-efficiency vs. general-purpose vision captioning.</li>
+  </ul>
+  <div class="tip">Image analyzers are <strong>not</strong> optimized for scenarios where the goal is primarily extracting and analyzing <em>text</em> within images — for text-centric images, use a <strong>document field extraction schema</strong> instead.</div>
+  <div class="must-know"><b>Must know / exam trap:</b> If the scenario is "extract visual characteristics / describe/classify an image" → image analyzer. If the scenario is "an image of a form/receipt where you need the printed text fields" → treat it with a <strong>document</strong> analyzer/schema, not the image analyzer.</div>
+</section>
+
+<section id="audio">
+  <h2>7. Audio Modality</h2>
+  <p>Audio analyzers transcribe and diarize conversational audio, then extract structured fields (summaries, sentiment, topics, entities).</p>
+  <h3>Content extraction</h3>
+  <ul>
+    <li><strong>Transcription</strong>: conversational audio → WebVTT transcripts; sentence/word-level timestamps on request.</li>
+    <li><strong>Diarization</strong>: attributes transcript segments to specific speakers.</li>
+    <li><strong>Speaker role detection</strong>: maps speakers to roles (e.g., agent vs. customer in a call center).</li>
+    <li><strong>Multilingual transcription</strong>: auto-applies language/locale per phrase when no locale (or <code>auto</code>) is specified.</li>
+    <li><strong>Language detection</strong>: auto-detects dominant language when multiple candidate locales are given.</li>
+  </ul>
+  <h3>Locale configuration trade-offs</h3>
+  <table>
+    <tr><th>Locale setting</th><th>Behavior</th></tr>
+    <tr><td><code>auto</code> / empty</td><td>Multilingual transcription; near-real-time for smaller files, regular latency for longer/larger files; narrower locale list for very large files.</td></tr>
+    <tr><td>Single locale</td><td>Single-language transcription; broadest locale support; fastest when file is small.</td></tr>
+    <tr><td>Multiple locales</td><td>Single-language transcription chosen via language detection among the specified locales.</td></tr>
+  </table>
+  <h3>Prebuilt audio analyzer</h3>
+  <ul>
+    <li><code>prebuilt-callCenter</code>: transcript + speaker roles, call summary, call sentiment, top mentioned articles, companies mentioned, etc.</li>
+    <li>All prebuilt audio analyzers use multilingual transcription and <code>returnDetails</code> enabled by default, outputting WebVTT separated by speaker.</li>
+  </ul>
+  <div class="tip">Avoid transcription quality issues: when you are <em>not</em> intentionally using multilingual transcription, always explicitly configure <code>locales</code> — unsupported locales under multilingual mode silently fall back to the "closest" supported locale, which can be wrong.</div>
+  <div class="must-know"><b>Must know:</b> Audio field extraction can <strong>Generate</strong> (summaries), <strong>Classify</strong> (sentiment/category), from a transcript enriched by diarization + role detection — this preprocessing gives the generative model the context it needs.</div>
+</section>
+
+<section id="video">
+  <h2>8. Video Modality</h2>
+  <p><em>Preview API <code>2026-06-01-preview</code>.</em> Produces standard video metadata plus custom fields via generative models; manages/categorizes/retrieves video assets and supports RAG workflows.</p>
+  <h3>Two-stage pipeline</h3>
+  <ol>
+    <li><strong>Content extraction</strong>: transcription (WebVTT, diarization, multilingual), <strong>key-frame extraction</strong> (thumbnails per shot), <strong>shot detection</strong> (timestamps of camera-cut boundaries, in <code>cameraShotTimesMs</code>).</li>
+    <li><strong>Field extraction &amp; segmentation</strong>: generative model tags scenes, summarizes actions, and slices footage into segments per a <code>fieldSchema</code>.</li>
+  </ol>
+  <h3>Segmentation modes (<code>enableSegment</code>)</h3>
+  <ul>
+    <li><strong>Whole-video</strong> (<code>enableSegment: false</code>): entire file treated as one segment — good for full-length summaries or compliance checks spanning the whole asset.</li>
+    <li><strong>Custom segmentation</strong> (<code>enableSegment: true</code>): video split into logical scenes/chapters (e.g., segmenting a news broadcast by topic).</li>
+  </ul>
+  <div class="tip">Setting segmentation invokes the generative model and consumes tokens <em>even if you define no custom fields</em> — be aware of cost implications.</div>
+  <h3>Prebuilt video analyzer: <code>prebuilt-videoSearch</code> / <code>prebuilt-videoAnalysis</code></h3>
+  <ul>
+    <li>Outputs RAG-ready Markdown: inline <strong>transcript</strong> (WebVTT) + ordered <strong>key-frame</strong> thumbnails + natural-language <strong>segment descriptions</strong> (visual + speech context).</li>
+    <li>JSON output adds deeper visual-analysis detail and automatic scene <strong>segmentation</strong>.</li>
+    <li>Drops directly into a vector store for an agent/RAG workflow — no post-processing required.</li>
+  </ul>
+  <h3>Example custom fields</h3>
+  <ul>
+    <li>Media asset management: Video Category (News/Sports/Interview/…), Color scheme.</li>
+    <li>Advertising: Brand presence/logo detection, Ad category/industry classification.</li>
+  </ul>
+  <div class="must-know"><b>Must know:</b> Video processing is a <strong>two-stage pipeline</strong> — content extraction (transcript, key frames, shot detection) feeds field extraction + segmentation (generative). <code>enableSegment</code> controls whole-video vs. scene-by-scene output.</div>
+</section>
+
+<section id="compare">
+  <h2>9. Content Understanding vs. Document Intelligence vs. AI Vision / Custom Vision</h2>
+  <table>
+    <tr><th>Service</th><th>Best for</th><th>Relationship to Content Understanding</th></tr>
+    <tr><td><strong>Azure AI Document Intelligence</strong></td><td>Structured/templated documents needing high-accuracy, low-latency, deterministic extraction (prebuilt or custom trained models).</td><td>Its capabilities are <em>incorporated into</em> Content Understanding's document pipeline (e.g., layout/OCR analyzers). Existing Document Intelligence APIs/SDKs/billing are unaffected — <strong>no migration required</strong> for current workloads.</td></tr>
+    <tr><td><strong>Azure AI Content Understanding</strong></td><td>Unstructured, varying-layout, multimodal content; inferred fields; complex reasoning; zero-shot extraction without labeled training data; multimodal (doc+image+audio+video) in one schema-driven API.</td><td>The unifying generative layer across Document Intelligence-style extraction and LLM reasoning.</td></tr>
+    <tr><td><strong>Azure-hosted Foundry LLMs (bring-your-own)</strong></td><td>Teams needing full control of prompts/models/infra.</td><td>Content Understanding sits on top of Foundry model deployments — an alternative is to call those models directly yourself for full control.</td></tr>
+    <tr><td><strong>Azure AI Vision</strong></td><td>General image analysis, OCR, spatial analysis, moderation primitives.</td><td>Content Understanding's image modality provides schema-driven structured extraction rather than general captioning/tags.</td></tr>
+    <tr><td><strong>Azure AI Custom Vision</strong></td><td>(Legacy) custom image classification/object detection training.</td><td>Microsoft recommends <strong>Content Understanding's image analyzers</strong> as the modern replacement path for classification-style scenarios, leveraging generative schema-based extraction instead of training custom CV models.</td></tr>
+  </table>
+  <div class="must-know"><b>Must know / exam trap:</b> Content Understanding does <strong>not replace</strong> Document Intelligence — it <em>incorporates</em> it for structured/templated docs while adding generative capability for unstructured/multimodal cases. For brand-new classification scenarios, Microsoft positions Content Understanding (not Custom Vision) as the recommended approach going forward.</div>
+</section>
+
+<section id="rai">
+  <h2>10. Responsible AI &amp; Data Handling</h2>
+  <ul>
+    <li>Content Understanding is subject to standard <strong>Microsoft policies on customer data</strong> — review data, privacy, and security guidance before processing sensitive content.</li>
+    <li><strong>Confidence scores</strong> and <strong>grounding</strong> exist specifically to support responsible, auditable automation: route low-confidence or weakly grounded extractions to human review rather than fully automating decisions.</li>
+    <li>Preview capabilities (e.g., <strong>agentic mode</strong>, the <code>2026-06-01-preview</code> API, video analysis) are governed by the <strong>Supplemental Terms of Use for Azure Previews</strong> — no SLA, not recommended for production.</li>
+    <li>Agentic mode is explicitly <strong>not a replacement for human review</strong> in high-impact decision scenarios (e.g., financial reconciliation, compliance validation).</li>
+    <li>Use GA API version <code>2025-11-01</code> for production workloads; use preview versions only for evaluation of new capabilities.</li>
+  </ul>
+  <div class="must-know"><b>Must know:</b> Grounding + confidence scores are the key Responsible-AI control pattern in Content Understanding — they enable human-in-the-loop review for low-certainty extractions instead of blind automation.</div>
+</section>
+
+<footer>
+  Compiled from Microsoft Learn documentation (Azure AI Content Understanding / Foundry Tools) — study notes generated 2026-11-14 for Microsoft Certification exam AI-103.
+</footer>
+
+</div>
+</body>
+</html>

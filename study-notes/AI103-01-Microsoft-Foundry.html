@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI-103 Study Notes: Microsoft Foundry</title>
+<style>
+  :root{
+    --accent:#0078D4; --accent-dark:#004578; --bg:#f5f7fa; --card:#ffffff;
+    --warn-bg:#fff4e5; --warn-border:#e67e22; --tip-bg:#e8f4fd; --tip-border:#0078D4;
+  }
+  body{font-family:'Segoe UI',Calibri,Arial,sans-serif;background:var(--bg);color:#222;margin:0;padding:0;line-height:1.55;}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 24px 80px;}
+  header.hero{background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;padding:36px 24px;border-radius:0 0 16px 16px;}
+  header.hero h1{margin:0 0 8px;font-size:26px;}
+  header.hero p{margin:0;opacity:.9;font-size:14px;}
+  .badge{display:inline-block;background:rgba(255,255,255,.2);padding:4px 10px;border-radius:12px;font-size:12px;margin-top:10px;margin-right:6px;}
+  .section-nav{background:var(--card);border-radius:10px;padding:16px 22px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin:20px 0;font-size:14px;}
+  .section-nav a{color:var(--accent-dark);text-decoration:none;display:inline-block;margin:3px 10px 3px 0;}
+  .section-nav a:hover{text-decoration:underline;}
+  section{background:var(--card);border-radius:10px;padding:22px 26px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin:22px 0;}
+  section h2{color:var(--accent-dark);border-bottom:2px solid var(--accent);padding-bottom:6px;margin-top:0;font-size:21px;}
+  h3{color:var(--accent-dark);margin-top:22px;font-size:16px;}
+  .retire{background:var(--warn-bg);border-left:5px solid var(--warn-border);padding:14px 18px;border-radius:6px;margin:14px 0;font-size:14px;}
+  .tip{background:var(--tip-bg);border-left:5px solid var(--tip-border);padding:12px 16px;border-radius:6px;margin:12px 0;font-size:13.5px;}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;}
+  th,td{border:1px solid #d8dee4;padding:7px 9px;text-align:left;}
+  th{background:var(--accent);color:#fff;}
+  tr:nth-child(even){background:#f0f4f8;}
+  ul,ol{margin:8px 0;padding-left:22px;}
+  li{margin-bottom:4px;}
+  .keyword{background:#fffbdd;padding:1px 5px;border-radius:4px;font-weight:600;}
+  code{background:#eef1f4;padding:2px 5px;border-radius:4px;font-size:13px;}
+  .must-know{background:#eafaf1;border:1px solid #b7e4c7;border-radius:8px;padding:10px 16px;margin-top:14px;font-size:13.5px;}
+  .must-know b{color:#1e7e34;}
+  footer{text-align:center;color:#888;font-size:12px;margin-top:50px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>AI-103: Developing AI Apps and Agents on Azure</h1>
+  <p>Study Notes — Microsoft Foundry (formerly Azure AI Foundry / Azure AI Studio)</p>
+  <span class="badge">Model Catalog</span>
+  <span class="badge">Projects &amp; Architecture</span>
+  <span class="badge">Deployments</span>
+  <span class="badge">Agent Service</span>
+  <span class="badge">RBAC &amp; Security</span>
+  <span class="badge">Responsible AI</span>
+</header>
+
+<div class="section-nav">
+  <strong>Jump to:</strong><br>
+  <a href="#overview">1. What Is Microsoft Foundry</a>
+  <a href="#models">2. Foundry Models &amp; Catalog</a>
+  <a href="#projects">3. Projects, Hubs &amp; Architecture</a>
+  <a href="#deployments">4. Deployment Options</a>
+  <a href="#agents">5. Foundry Agent Service</a>
+  <a href="#rbac">6. RBAC &amp; Identity</a>
+  <a href="#security">7. Networking, Quotas &amp; Monitoring</a>
+  <a href="#responsible">8. Responsible AI &amp; Safety</a>
+  <a href="#cicd">9. SDKs, CLI &amp; CI/CD</a>
+</div>
+
+<section id="overview">
+  <h2>1. What Is Microsoft Foundry</h2>
+  <p>Microsoft Foundry (the rebrand of <span class="keyword">Azure AI Foundry</span> / Azure AI Studio) is a unified platform for building, deploying, and governing <strong>agents, models, and tools</strong> under one Azure resource provider namespace (<code>Microsoft.CognitiveServices</code>).</p>
+  <h3>Core value proposition</h3>
+  <ul>
+    <li><strong>One management plane:</strong> unified RBAC, networking, and Azure Policy across agents, models, and tools.</li>
+    <li><strong>Model catalog:</strong> 10,000+ models (Microsoft, OpenAI, Anthropic, Meta, Mistral, Cohere, Hugging Face, DeepSeek, NVIDIA NIMs, and more).</li>
+    <li><strong>Agent Service:</strong> managed hosting/runtime for agents of any complexity (declarative to full custom code).</li>
+    <li><strong>Enterprise-ready:</strong> built-in tracing, evaluations, content filters, Entra ID identity, private networking.</li>
+  </ul>
+  <h3>Two portal experiences (exam-relevant distinction)</h3>
+  <table>
+    <tr><th>Experience</th><th>Project model</th><th>Status</th></tr>
+    <tr><td><strong>Foundry (new)</strong></td><td>Foundry resource → Foundry <strong>project</strong> (subresource of <code>Microsoft.CognitiveServices/accounts</code>)</td><td>Current, recommended default for new builds</td></tr>
+    <tr><td><strong>Foundry (classic)</strong></td><td><strong>Hub</strong> → multiple <strong>hub-based projects</strong> (Azure ML–style, ties to AI Hub resource)</td><td>Legacy; still used for serverless API endpoints &amp; managed compute deployments</td></tr>
+  </table>
+  <div class="tip">Tip: If you're upgrading an existing <strong>Azure OpenAI</strong> resource, you can upgrade it in place to a Foundry resource while <strong>keeping the same endpoint and API keys</strong> — no redeployment needed.</div>
+  <div class="must-know"><b>Must know:</b> The exam may test the resource hierarchy terminology — a <strong>Foundry resource</strong> (<code>kind: AIServices</code>) is the top-level governance boundary; a <strong>Foundry project</strong> is a <em>subresource</em> under it (<code>accounts/projects</code>), not a separate top-level resource. Hub-based projects are the older, classic-portal-only model.</div>
+</section>
+
+<section id="models">
+  <h2>2. Foundry Models &amp; Catalog</h2>
+  <h3>Model categories</h3>
+  <ul>
+    <li><strong>Foundry Models sold by Azure:</strong> Microsoft hosts and sells these (incl. Azure OpenAI models). Microsoft support, enterprise SLAs, deep Azure integration, internal Responsible AI review, some offer <strong>fungible provisioned throughput</strong> (quota shared flexibly across models).</li>
+    <li><strong>Foundry Models from partners &amp; community:</strong> the majority of the catalog (Anthropic Claude, Hugging Face models, Meta Llama, Mistral, Cohere, industry-specific models). Diverse capabilities; support/SLA varies by provider.</li>
+  </ul>
+  <h3>Model types to recognize for the exam</h3>
+  <ul>
+    <li><strong>Foundation / Large Language Models (LLMs):</strong> general-purpose text generation, reasoning, chat (e.g., GPT-4o family).</li>
+    <li><strong>Small Language Models (SLMs):</strong> lightweight, lower-latency/cost, good for edge or narrow tasks (e.g., Phi family).</li>
+    <li><strong>Reasoning models:</strong> optimized for multi-step/chain-of-thought problem solving.</li>
+    <li><strong>Multimodal models:</strong> accept/produce combinations of text, image, audio (vision + text, speech-to-speech realtime models like GPT-Realtime).</li>
+    <li><strong>Domain-specific / industry models:</strong> e.g., Saifr, Rockwell, Bayer, Cerence — require managed compute deployment.</li>
+    <li><strong>Embedding models:</strong> used for vector search / RAG grounding scenarios.</li>
+  </ul>
+  <h3>Foundry Tools (formerly "Cognitive Services" / AI Services)</h3>
+  <p>Prebuilt, task-specific APIs you compose alongside models: <strong>Azure AI Content Safety</strong>, <strong>Azure AI Search</strong> (vector/keyword/hybrid retrieval for grounding), <strong>Speech</strong>, <strong>Vision</strong>, <strong>Language</strong>, <strong>Content Understanding</strong>, Translator (Foundry-resource scope only).</p>
+  <div class="tip">Tip: Choosing a model for the exam = match task → model type. Simple classification/low-latency → SLM. Multi-step agentic reasoning → reasoning model. Image+text grounding → multimodal. Need to search your own documents → pair any LLM with <strong>Azure AI Search</strong> for vector/RAG grounding, not a bigger model.</div>
+  <div class="must-know"><b>Must know:</b> You are responsible for reviewing each model's model card, selecting an appropriate model for your use case, and layering <strong>Content Safety</strong> yourself — Microsoft's Responsible AI review of "sold by Azure" models does <em>not</em> guarantee risk mitigation for your specific application.</div>
+</section>
+
+<section id="projects">
+  <h2>3. Projects, Hubs &amp; Architecture</h2>
+  <h3>Resource hierarchy (new Foundry portal)</h3>
+  <ul>
+    <li><strong>Foundry resource</strong> (<code>Microsoft.CognitiveServices/accounts</code>, kind <code>AIServices</code>) — top-level: model deployments, security/networking settings, connections. This is the governance/administrative boundary.</li>
+    <li><strong>Foundry project</strong> (<code>accounts/projects</code> subresource) — development boundary: agents, evaluations, files, scoped per team/use case. Reuses the parent's model deployments and connections — no repeated IT setup per project.</li>
+    <li><strong>Connected resources</strong> — Storage, Key Vault, Azure AI Search: independent Azure resources, each with its <em>own</em> governance boundary (you manage their networking/access separately).</li>
+  </ul>
+  <h3>Azure resource providers in the AI family</h3>
+  <table>
+    <tr><th>Resource provider</th><th>Purpose</th><th>Example services</th></tr>
+    <tr><td><code>Microsoft.CognitiveServices</code></td><td>Agentic/GenAI app dev, prebuilt + custom models</td><td>Foundry, Azure OpenAI, Speech/Vision/Language in Foundry Tools</td></tr>
+    <tr><td><code>Microsoft.Search</code></td><td>Knowledge retrieval over your data</td><td>Azure AI Search</td></tr>
+  </table>
+  <h3>When to use which setup</h3>
+  <ul>
+    <li><strong>Single developer / exploration:</strong> one Foundry resource + one project (recommended default).</li>
+    <li><strong>Multi-team org:</strong> one Foundry resource with multiple projects — isolated workspaces, shared model deployments, centralized governance.</li>
+    <li><strong>Compliance-driven:</strong> Foundry resource model supports private networking, customer-managed keys, Azure RBAC scoping at both resource and project levels.</li>
+    <li><strong>Pure inference only (no agents/evals):</strong> a standalone Azure OpenAI resource may suffice.</li>
+  </ul>
+  <h3>Creating a project</h3>
+  <p>Supported surfaces: <strong>Foundry portal</strong> (fastest, auto-creates the Foundry resource), <strong>Python SDK</strong> (<code>azure-mgmt-cognitiveservices</code> + <code>DefaultAzureCredential</code>), <strong>Azure CLI</strong>, or <strong>ARM/Bicep templates</strong> (for org-mandated naming/tag/security policies).</p>
+  <div class="tip">Tip: For custom Azure Policy requirements (naming conventions, security controls, cost tags), use the <strong>Azure portal or templates</strong> instead of the Foundry portal quick-create flow.</div>
+  <h3>Model deployment types (data-processing scope)</h3>
+  <table>
+    <tr><th>Deployment type</th><th>Data processing</th><th>Billing</th></tr>
+    <tr><td>Global Standard</td><td>Cross-region, Azure-managed</td><td>Pay-per-token</td></tr>
+    <tr><td>Global Provisioned</td><td>Cross-region</td><td>Hourly reserved capacity (PTU)</td></tr>
+    <tr><td>Global Batch</td><td>Cross-region</td><td>Batch token pricing</td></tr>
+    <tr><td>Data Zone Standard/Provisioned/Batch</td><td>Within data-zone boundary</td><td>Pay-per-token / hourly / batch</td></tr>
+    <tr><td>Standard</td><td>Single region</td><td>Pay-per-token</td></tr>
+    <tr><td>Regional Provisioned</td><td>Single region</td><td>Hourly reserved capacity</td></tr>
+    <tr><td>Developer</td><td>Any region, no residency guarantee</td><td>Pay-per-token, 24-hr lifetime, no SLA (fine-tune eval only)</td></tr>
+  </table>
+  <h3>Monitoring scope</h3>
+  <ul>
+    <li><strong>Resource-level metrics:</strong> token consumption, model latency, request counts, error rates across all projects.</li>
+    <li><strong>Project-level metrics:</strong> evaluation run outcomes, agent invocation counts, file operation activity.</li>
+    <li><strong>Diagnostic logging:</strong> route to Log Analytics, Storage, or Event Hubs via Azure Monitor diagnostic settings.</li>
+  </ul>
+  <div class="must-know"><b>Must know:</b> Not every API is available at project scope — some (e.g., <strong>Translator</strong>) are available <em>only</em> at the Foundry resource level. Plan architecture based on which API scope your workload actually needs before assuming "project-level" covers everything.</div>
+</section>
+
+<section id="deployments">
+  <h2>4. Deployment Options</h2>
+  <p>Foundry supports three deployment paths for models, chosen based on model type and required capabilities.</p>
+  <table>
+    <tr><th>Capability</th><th>Standard (Foundry resource)</th><th>Serverless API endpoint</th><th>Managed compute</th></tr>
+    <tr><td>Models supported</td><td>Flagship / sold-by-Azure + most partner models</td><td>Pay-as-you-go partner models</td><td>Open/custom models, Hugging Face, NIMs, industry models</td></tr>
+    <tr><td>Requires AI Hub?</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+    <tr><td>Data processing</td><td>Regional / Data-zone / Global</td><td>Regional only</td><td>Regional only</td></tr>
+    <tr><td>Private networking</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+    <tr><td>Content filtering</td><td>Yes (+ custom filters)</td><td>Yes (no custom)</td><td>No</td></tr>
+    <tr><td>Keyless (Entra ID) auth</td><td>Yes</td><td>No</td><td>No</td></tr>
+    <tr><td>Billing basis</td><td>Tokens / PTU</td><td>Tokens (infra billed per-minute while endpoint exists)</td><td>Compute core-hours</td></tr>
+  </table>
+  <div class="tip">Tip: <strong>Standard deployment in Foundry resources is the preferred/default option</strong> whenever a model supports multiple deployment types — it has the widest capability set (keyless auth, custom content filters, all data-processing scopes).</div>
+  <div class="must-know"><b>Must know:</b> Serverless API endpoints and managed compute are <strong>only available through AI Hub resources</strong> (classic model), not the new Foundry-resource-only path — and <strong>only Standard deployment</strong> supports keyless/Entra ID authentication and custom content filtering.</div>
+</section>
+
+<section id="agents">
+  <h2>5. Foundry Agent Service</h2>
+  <p>A managed platform for building, deploying, and scaling AI agents — any framework, any catalog model, one entry point for inference + tools.</p>
+  <h3>Three agent types (declarative → full code spectrum)</h3>
+  <table>
+    <tr><th>Type</th><th>Build surface</th><th>Runtime/compute</th><th>Best for</th></tr>
+    <tr><td><strong>Prompt agents</strong></td><td>Portal, SDK, REST, Azure Developer CLI (<code>azd</code>)</td><td>Fully managed, no code/containers</td><td>Fast start; production agents without custom orchestration</td></tr>
+    <tr><td><strong>Voice-based prompt agents</strong></td><td>Portal/SDK config + Voice Live connection</td><td>Fully managed real-time WebSocket</td><td>Spoken/call-center experiences, low latency</td></tr>
+    <tr><td><strong>Hosted agents</strong></td><td>Agent Framework, LangGraph, OpenAI Agents SDK, Anthropic SDK, custom code — shipped as container or .zip</td><td>Foundry-managed container compute, autoscale</td><td>Custom orchestration, multi-agent systems, bring-your-own-code</td></tr>
+  </table>
+  <p>A fourth pattern — calling the <strong>Responses API</strong> directly — creates an <em>ephemeral agent</em>: instructions/tools/model are assembled in your own app code per-request, with no persisted Foundry agent resource, but you still get catalog models, platform tools, and project-level observability/governance.</p>
+  <h3>Agent Service components</h3>
+  <ul>
+    <li><strong>Agent Runtime:</strong> hosts/scales prompt &amp; hosted agents; manages conversations, tool calls, lifecycle.</li>
+    <li><strong>Toolboxes:</strong> curated, reusable tool sets (web search, file search, code interpreter, MCP servers, custom functions) shared across agents via one managed MCP endpoint with centralized auth/governance/versioning.</li>
+    <li><strong>Models:</strong> swap models (GPT-4o, Llama, DeepSeek, etc.) without changing agent code.</li>
+    <li><strong>Observability:</strong> end-to-end tracing, metrics, evaluations, Application Insights integration.</li>
+    <li><strong>Agent Optimizer</strong> (preview): auto-generates better instructions, skills, tool descriptions, model choices.</li>
+    <li><strong>Identity &amp; Security:</strong> Entra ID identity per agent, RBAC, content filters, VNet isolation.</li>
+    <li><strong>Publishing:</strong> version agents, stable endpoints, share via Teams, Microsoft Copilot, Entra Agent Registry.</li>
+  </ul>
+  <h3>Voice agent architectures</h3>
+  <ul>
+    <li><strong>Native speech-to-speech:</strong> one realtime model handles audio in/out directly — lowest latency.</li>
+    <li><strong>Cascaded text model:</strong> speech recognition → text model → speech synthesis — more model/voice choice, more control, higher end-to-end latency.</li>
+  </ul>
+  <div class="tip">Tip: Choosing an agent type on the exam = map requirement → type. "No code to maintain" → prompt agent. "Bring my own LangGraph/Agent Framework code" → hosted agent. "Phone/voice channel" → voice-based prompt agent. "Agent logic lives in my app, no Foundry resource to manage" → ephemeral agent via Responses API.</div>
+  <div class="must-know"><b>Must know:</b> Hosted agents get an <strong>automatic, dedicated per-agent Microsoft Entra identity</strong>; prompt and voice-based prompt agents use Entra identity too but with no runtime code/container to manage at all — the exam may ask which type requires you to manage container compute (answer: hosted agents only).</div>
+</section>
+
+<section id="rbac">
+  <h2>6. RBAC &amp; Identity</h2>
+  <h3>Key terminology</h3>
+  <ul>
+    <li><strong>Scope:</strong> subscription, resource group, Foundry resource, Foundry project, or individual agent.</li>
+    <li><strong>Role:</strong> named permission set applied at a scope.</li>
+    <li><strong>Control-plane vs data-plane actions:</strong> creating deployments/projects (control) is distinct from building agents, running evaluations, uploading files (data).</li>
+  </ul>
+  <h3>Built-in Foundry roles</h3>
+  <table>
+    <tr><th>Role</th><th>Key capability</th></tr>
+    <tr><td><strong>Foundry Agent Consumer</strong></td><td>Least-privilege: interact with agent endpoints only (e.g., call Responses API) — no create/modify rights.</td></tr>
+    <tr><td><strong>Foundry User</strong></td><td>Reader + data actions (build/test agents). Minimum role for developers; also assign to the <strong>project's managed identity</strong>.</td></tr>
+    <tr><td><strong>Foundry Project Manager</strong></td><td>Manage projects, build/develop, publish agents, conditionally assign Foundry User to others.</td></tr>
+    <tr><td><strong>Foundry Account Owner</strong></td><td>Full resource/project management, manage models, conditionally assign Foundry User/ACR/monitoring roles — cannot build in projects.</td></tr>
+    <tr><td><strong>Foundry Owner</strong></td><td>Everything above combined — highly privileged self-serve role.</td></tr>
+  </table>
+  <div class="tip">Tip: These roles were renamed from <code>Azure AI User/Owner/Account Owner/Project Manager</code> → <code>Foundry User/Owner/Account Owner/Project Manager</code>. Role IDs and permissions are unchanged — only display names changed. Expect either naming on the exam.</div>
+  <h3>Minimum setup for a new user</h3>
+  <ol>
+    <li>Assign <strong>Foundry User</strong> to the user principal on the Foundry resource.</li>
+    <li>Assign <strong>Foundry User</strong> to the project's <strong>managed identity</strong> on the Foundry resource.</li>
+    <li>For quota/usage visibility, assign <strong>Cognitive Services Usages Reader</strong> at subscription scope.</li>
+  </ol>
+  <div class="must-know"><b>Must know:</b> <strong>Key-based authentication bypasses RBAC entirely</strong> — a valid key grants full access with no role restriction. Microsoft Entra ID authentication is required to get granular, least-privilege access control. Also: don't use generic <strong>Cognitive Services</strong> roles or <strong>Azure AI Developer</strong> (scoped to AML workspaces/hubs) for Foundry project access — use the Foundry-specific roles instead.</div>
+</section>
+
+<section id="security">
+  <h2>7. Networking, Quotas &amp; Monitoring</h2>
+  <h3>Security mechanisms</h3>
+  <ul>
+    <li><strong>Managed identity:</strong> every Foundry project has a system-assigned managed identity used for keyless access to connected resources (Storage, Key Vault, Search) and must itself be granted <strong>Foundry User</strong> on the resource.</li>
+    <li><strong>Keyless (Entra ID) credentials:</strong> preferred over API keys; only supported on <strong>Standard deployment</strong> — not on serverless API or managed compute.</li>
+    <li><strong>Private networking:</strong> VNet integration / private link available across all three deployment types; supports network-isolated agent, evaluation, and batch workloads.</li>
+    <li><strong>Customer-managed keys (CMK):</strong> supported at the Foundry resource for encryption-at-rest compliance scenarios.</li>
+    <li><strong>Azure Policy:</strong> shared provider namespace (<code>Microsoft.CognitiveServices</code>) means existing OpenAI/Cognitive Services policies continue to apply after upgrading to Foundry.</li>
+  </ul>
+  <h3>Quotas, scaling &amp; cost control</h3>
+  <ul>
+    <li><strong>Standard (pay-as-you-go):</strong> rate-limited by tokens-per-minute (TPM) / requests-per-minute (RPM) quota per deployment/region.</li>
+    <li><strong>Provisioned Throughput Units (PTU):</strong> reserved, hourly-billed capacity for predictable latency/throughput at scale; some sold-by-Azure models support <strong>fungible PTU</strong> — quota reservation usable flexibly across multiple eligible models.</li>
+    <li><strong>Managed compute:</strong> billed per-minute by compute core-hours/instance count — requires subscription compute quota.</li>
+    <li><strong>Cognitive Services Usages Reader</strong> role: needed to view quota/run deployment eligibility checks without granting broader access.</li>
+  </ul>
+  <h3>Monitoring layers</h3>
+  <table>
+    <tr><th>Layer</th><th>What it tracks</th></tr>
+    <tr><td>Foundry resource (top-level)</td><td>Token consumption, model latency, request counts, error rates — across all projects</td></tr>
+    <tr><td>Foundry project</td><td>Evaluation run outcomes, agent invocation counts, file operation activity</td></tr>
+    <tr><td>Diagnostic settings</td><td>Route logs to Log Analytics / Storage / Event Hubs for retention &amp; analysis</td></tr>
+    <tr><td>Agent observability</td><td>End-to-end tracing of agent decisions/tool calls, evaluations, Application Insights integration</td></tr>
+  </table>
+  <div class="tip">Tip: When a scenario mentions "need to see cross-project usage and errors" → resource-level metrics. "Need to see how one team's agents perform" → project-level metrics.</div>
+  <div class="must-know"><b>Must know:</b> Keyless/Entra ID auth, custom content filtering, and all three data-processing scopes (regional/data-zone/global) are available <strong>only</strong> with <strong>Standard deployment in a Foundry resource</strong> — this is a common "which deployment option supports X" trap.</div>
+</section>
+
+<section id="responsible">
+  <h2>8. Responsible AI &amp; Safety</h2>
+  <h3>Shared responsibility</h3>
+  <ul>
+    <li>Microsoft performs an internal Responsible AI review for models <strong>sold by Azure</strong> and publishes transparency/model cards — but this does <strong>not guarantee</strong> risk mitigation for your specific app.</li>
+    <li>You are responsible for: complying with applicable law, reviewing model cards, selecting appropriate models, and implementing safeguards (e.g., <strong>Azure AI Content Safety</strong>) to comply with Microsoft's Acceptable Use Policy and Enterprise AI Services Code of Conduct.</li>
+  </ul>
+  <h3>Guardrails &amp; safety tooling</h3>
+  <ul>
+    <li><strong>Content filters:</strong> built into Standard/serverless deployments to block harmful content categories (hate, violence, sexual, self-harm) at configurable severity thresholds; <strong>custom content filtering</strong> only on Standard deployment.</li>
+    <li><strong>Evaluations / safety evaluators:</strong> built-in evaluators assess groundedness, relevance, coherence, and safety (e.g., jailbreak/harmful content risk) for both models and agents before and after deployment.</li>
+    <li><strong>Tracing/observability:</strong> end-to-end trace logs capture agent reasoning steps, tool calls, and model responses — supports provenance review and audit.</li>
+    <li><strong>Agent oversight controls:</strong> RBAC at the agent scope, Entra identity per agent (hosted agents), tool-access governance via Toolboxes (centralized auth/versioning so you control which tools an agent can call).</li>
+    <li><strong>Approval/publishing workflow:</strong> agents are versioned and published through controlled channels (Teams, Copilot, Entra Agent Registry) rather than ad hoc, supporting governance over what reaches production.</li>
+  </ul>
+  <h3>Agent-specific risk controls</h3>
+  <ul>
+    <li>Scope RBAC at the <strong>agent level</strong> to grant endpoint access to one agent without exposing all agents in a project (narrowest practical scope).</li>
+    <li>Use <strong>Foundry Agent Consumer</strong> for principals/apps that only need to call an agent, not modify it — reduces blast radius.</li>
+    <li>Constrain tool access through curated <strong>Toolboxes</strong> rather than giving agents unrestricted tool/function access.</li>
+  </ul>
+  <div class="tip">Tip: When a question describes "ensuring an agent's model outputs are safe before rollout" think <strong>safety evaluators</strong>; when it describes "blocking harmful content at inference time" think <strong>content filters</strong>; when it describes "understanding why an agent made a decision after the fact" think <strong>tracing/observability</strong>.</div>
+  <div class="must-know"><b>Must know:</b> Content filtering is <strong>not available at all</strong> on <strong>managed compute</strong> deployments — if a scenario requires content safety guardrails, managed compute is the wrong deployment choice.</div>
+</section>
+
+<section id="cicd">
+  <h2>9. SDKs, CLI &amp; CI/CD Integration</h2>
+  <h3>Developer surfaces</h3>
+  <table>
+    <tr><th>Surface</th><th>Best for</th></tr>
+    <tr><td><strong>Foundry portal</strong></td><td>Exploring models, prototyping prompts, building prompt agents with no code</td></tr>
+    <tr><td><strong>SDKs</strong> (Python, C#, JavaScript, Java)</td><td>Building applications; code-first agent definitions for CI/CD integration</td></tr>
+    <tr><td><strong>Azure Developer CLI (<code>azd</code>)</strong></td><td>Keep agent definitions in source control; deploy/invoke via pipeline commands</td></tr>
+    <tr><td><strong>Azure CLI / ARM / Bicep</strong></td><td>Infrastructure-as-code provisioning of Foundry resources/projects to satisfy org policy requirements</td></tr>
+    <tr><td><strong>REST API</strong></td><td>Direct programmatic control (e.g., Responses API) from any language/pipeline</td></tr>
+  </table>
+  <h3>Code-first / CI/CD pattern for agents</h3>
+  <ul>
+    <li>Define prompt agents programmatically (SDK/REST) instead of only in the portal — enables <strong>version control, code review, and automated rollout</strong>.</li>
+    <li>Hosted agents ship as a <strong>container image or .zip</strong> of source; Foundry builds the container for you from a .zip, enabling standard build pipelines.</li>
+    <li>Use <strong>managed identity</strong> (not keys) in pipeline/service-to-service calls for keyless, auditable authentication.</li>
+    <li>Promote agent versions across environments (dev/test/prod projects) using consistent RBAC roles (Foundry Project Manager to publish, Foundry User to build/test).</li>
+  </ul>
+  <div class="tip">Tip: "Portal-first" prototyping → "Code-first" productionization is the expected maturity path Microsoft documents for prompt agents — expect a scenario question on moving from manual portal configuration to pipeline-driven deployment.</div>
+  <div class="must-know"><b>Must know:</b> Only <strong>Foundry Project Manager</strong> (or higher) can <strong>publish agents</strong> — <strong>Foundry User</strong> can build/test but not publish, a frequent "least privilege for CI/CD service principal" exam trap.</div>
+</section>
+
+<footer>
+  Compiled from Microsoft Learn documentation (learn.microsoft.com/azure/foundry and azure/foundry-classic) — Study notes generated 2026-11-14 for AI-103 exam preparation.
+</footer>
+
+</div>
+</body>
+</html>

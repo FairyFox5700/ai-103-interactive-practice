@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI-103 Study Notes — Service Index</title>
+<style>
+  :root{
+    --accent:#0078D4; --accent-dark:#004578; --bg:#f5f7fa; --card:#ffffff;
+  }
+  body{font-family:'Segoe UI',Calibri,Arial,sans-serif;background:var(--bg);color:#222;margin:0;padding:0;line-height:1.55;}
+  .wrap{max-width:860px;margin:0 auto;padding:32px 24px 80px;}
+  header.hero{background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;padding:36px 24px;border-radius:0 0 16px 16px;}
+  header.hero h1{margin:0 0 8px;font-size:26px;}
+  header.hero p{margin:0;opacity:.9;font-size:14px;}
+  .badge{display:inline-block;background:rgba(255,255,255,.2);padding:4px 10px;border-radius:12px;font-size:12px;margin-top:10px;margin-right:6px;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:28px;}
+  .card{background:var(--card);border-radius:10px;padding:18px 20px;box-shadow:0 1px 4px rgba(0,0,0,.08);text-decoration:none;color:#222;display:block;transition:transform .1s ease, box-shadow .1s ease;}
+  .card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.12);}
+  .card .num{display:inline-block;background:var(--accent);color:#fff;font-size:12px;font-weight:700;border-radius:6px;padding:2px 8px;margin-bottom:8px;}
+  .card h3{margin:0 0 6px;font-size:16px;color:var(--accent-dark);}
+  .card p{margin:0;font-size:13px;color:#555;}
+  footer{text-align:center;color:#888;font-size:12px;margin-top:50px;}
+  a.back{color:#fff;opacity:.9;font-size:13px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>AI-103 Study Notes — Service Index</h1>
+    <p>Exam-focused deep-dive notes for each Azure/Foundry service covered by Microsoft Certification exam AI-103 ("Developing AI Apps and Agents on Azure"), compiled from official Microsoft Learn documentation.</p>
+    <span class="badge">10 services</span>
+    <span class="badge"><a class="back" href="../index.html">&larr; Back to practice questions</a></span>
+  </header>
+
+  <div class="grid">
+    <a class="card" href="AI103-01-Microsoft-Foundry.html">
+      <span class="num">01</span>
+      <h3>Microsoft Foundry</h3>
+      <p>Projects, model catalog, deployments, Agent Service, RBAC, networking &amp; responsible AI.</p>
+    </a>
+    <a class="card" href="AI103-02-Azure-OpenAI.html">
+      <span class="num">02</span>
+      <h3>Azure OpenAI</h3>
+      <p>Models &amp; deployment types, RAG, prompt engineering, function calling, fine-tuning, quotas.</p>
+    </a>
+    <a class="card" href="AI103-03-Azure-AI-Vision.html">
+      <span class="num">03</span>
+      <h3>Azure AI Vision</h3>
+      <p>Image Analysis, OCR, captioning/VQA, image &amp; video generation, responsible AI for visuals.</p>
+    </a>
+    <a class="card" href="AI103-04-Azure-Video-Indexer.html">
+      <span class="num">04</span>
+      <h3>Azure AI Video Indexer</h3>
+      <p>Insights extraction, account types, custom models, widgets, API/SDK integration.</p>
+    </a>
+    <a class="card" href="AI103-05-Azure-Content-Understanding.html">
+      <span class="num">05</span>
+      <h3>Azure Content Understanding</h3>
+      <p>Analyzers &amp; schemas, standard vs. pro-mode pipelines, document/image/audio/video modalities.</p>
+    </a>
+    <a class="card" href="AI103-06-Azure-AI-Language.html">
+      <span class="num">06</span>
+      <h3>Azure AI Language</h3>
+      <p>NER, PII, sentiment, summarization, Conversational Language Understanding, Question Answering.</p>
+    </a>
+    <a class="card" href="AI103-07-Azure-AI-Speech.html">
+      <span class="num">07</span>
+      <h3>Azure AI Speech</h3>
+      <p>Speech-to-text, text-to-speech, custom speech, speech translation, agentic voice.</p>
+    </a>
+    <a class="card" href="AI103-08-Azure-AI-Search.html">
+      <span class="num">08</span>
+      <h3>Azure AI Search</h3>
+      <p>Vector/hybrid/semantic search, indexers &amp; skillsets, RAG ingestion pipelines.</p>
+    </a>
+    <a class="card" href="AI103-09-Azure-Document-Intelligence.html">
+      <span class="num">09</span>
+      <h3>Azure AI Document Intelligence</h3>
+      <p>Read/OCR, Layout, prebuilt &amp; custom models, structured/markdown output for RAG.</p>
+    </a>
+    <a class="card" href="AI103-10-Content-Safety-and-Translator.html">
+      <span class="num">10</span>
+      <h3>Content Safety &amp; Translator</h3>
+      <p>Harm categories, Prompt Shields, groundedness detection, text &amp; document translation.</p>
+    </a>
+  </div>
+
+  <footer>Compiled from Microsoft Learn documentation — last updated 2026-11-14.</footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI-103 Study Notes: Azure AI Video Indexer</title>
+<style>
+  :root{
+    --accent:#0078D4; --accent-dark:#004578; --bg:#f5f7fa; --card:#ffffff;
+    --warn-bg:#fff4e5; --warn-border:#e67e22; --tip-bg:#e8f4fd; --tip-border:#0078D4;
+  }
+  body{font-family:'Segoe UI',Calibri,Arial,sans-serif;background:var(--bg);color:#222;margin:0;padding:0;line-height:1.55;}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 24px 80px;}
+  header.hero{background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;padding:36px 24px;border-radius:0 0 16px 16px;}
+  header.hero h1{margin:0 0 8px;font-size:26px;}
+  header.hero p{margin:0;opacity:.9;font-size:14px;}
+  .badge{display:inline-block;background:rgba(255,255,255,.2);padding:4px 10px;border-radius:12px;font-size:12px;margin-top:10px;margin-right:6px;}
+  .section-nav{background:var(--card);border-radius:10px;padding:16px 22px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin:20px 0;font-size:14px;}
+  .section-nav a{color:var(--accent-dark);text-decoration:none;display:inline-block;margin:3px 10px 3px 0;}
+  .section-nav a:hover{text-decoration:underline;}
+  section{background:var(--card);border-radius:10px;padding:22px 26px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin:22px 0;}
+  section h2{color:var(--accent-dark);border-bottom:2px solid var(--accent);padding-bottom:6px;margin-top:0;font-size:21px;}
+  h3{color:var(--accent-dark);margin-top:22px;font-size:16px;}
+  .retire{background:var(--warn-bg);border-left:5px solid var(--warn-border);padding:14px 18px;border-radius:6px;margin:14px 0;font-size:14px;}
+  .tip{background:var(--tip-bg);border-left:5px solid var(--tip-border);padding:12px 16px;border-radius:6px;margin:12px 0;font-size:13.5px;}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;}
+  th,td{border:1px solid #d8dee4;padding:7px 9px;text-align:left;}
+  th{background:var(--accent);color:#fff;}
+  tr:nth-child(even){background:#f0f4f8;}
+  ul,ol{margin:8px 0;padding-left:22px;}
+  li{margin-bottom:4px;}
+  .keyword{background:#fffbdd;padding:1px 5px;border-radius:4px;font-weight:600;}
+  code{background:#eef1f4;padding:2px 5px;border-radius:4px;font-size:13px;}
+  .must-know{background:#eafaf1;border:1px solid #b7e4c7;border-radius:8px;padding:10px 16px;margin-top:14px;font-size:13.5px;}
+  .must-know b{color:#1e7e34;}
+  footer{text-align:center;color:#888;font-size:12px;margin-top:50px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>Azure AI Video Indexer — AI-103 Study Notes</h1>
+  <p>Developing AI Apps and Agents on Azure · Video analysis workflows &amp; multimodal understanding</p>
+  <span class="badge">Exam: AI-103</span>
+  <span class="badge">Service: Azure AI Video Indexer</span>
+  <span class="badge">Updated: 2026-11-14</span>
+</header>
+
+<nav class="section-nav">
+  <strong>Jump to:</strong>
+  <a href="#overview">1. What It Is</a>
+  <a href="#accounts">2. Accounts</a>
+  <a href="#workflow">3. Upload/Index Workflow</a>
+  <a href="#insights">4. Insights Catalogue</a>
+  <a href="#json">5. JSON Output</a>
+  <a href="#widgets">6. Widgets</a>
+  <a href="#customize">7. Custom Models</a>
+  <a href="#api">8. API/SDK Integration</a>
+  <a href="#scenarios">9. Scenarios &amp; RAG</a>
+  <a href="#pricing">10. Pricing/Tiers</a>
+</nav>
+
+<section id="overview">
+  <h2>1. What Is Azure AI Video Indexer?</h2>
+  <p>Azure AI Video Indexer (VI) is a cloud AI service (part of Azure AI services) that extracts deep, structured
+  <span class="keyword">insights</span> from video and audio content using a pipeline of 30+ AI models — built on
+  top of Face, Azure AI Vision, Speech, Translator, and generative AI/LLM models. It turns unstructured media into
+  searchable, structured JSON metadata.</p>
+  <h3>Two Deployment Options</h3>
+  <table>
+    <tr><th>Option</th><th>Description</th></tr>
+    <tr><td><b>Cloud-based Video Indexer</b></td><td>Web app/API, part of Azure AI services. Upload or point to a video; VI indexes it in the cloud. This is the primary option tested on AI-103.</td></tr>
+    <tr><td><b>Video Indexer enabled by Azure Arc</b></td><td>Runs on Azure Arc-enabled Kubernetes at the edge for low-latency/live streams or data-residency needs (can't move data to the cloud). Supports live video streams and uploaded files on-premises.</td></tr>
+  </table>
+  <h3>Core Capability Themes</h3>
+  <ul>
+    <li><b>Visual insights:</b> face detection, celebrity/person recognition, labels (objects/actions), object detection, observed people, OCR (on-screen text), scenes/shots/keyframes, clapper board &amp; color bar detection (post-production).</li>
+    <li><b>Audio insights:</b> transcription, translation, spoken-language identification (50+ languages), keyword extraction, named entity extraction, audio effects (laughter, applause, sirens), text-based sentiment/emotion detection, speaker diarization.</li>
+    <li><b>Aggregated/inferred insights:</b> topics inference, brands detection, video summarization using generative AI.</li>
+  </ul>
+  <div class="tip">VI is NOT a single model — it's an <b>orchestration layer</b> that runs many Azure AI services models together and merges the results into one unified JSON insight document per video.</div>
+  <div class="must-know"><b>Must know:</b> Azure AI Video Indexer is built on <b>Face, Azure AI Vision, Speech, and Translator</b> services — understand it as a composition/orchestration of existing Azure AI services, not a standalone model.</div>
+</section>
+
+<section id="accounts">
+  <h2>2. Account Types (ARM vs. Classic)</h2>
+  <p>An Azure AI Video Indexer <b>account</b> = the Video Indexer resource that connects your deployment to your
+  Azure subscription for access control, billing, and monitoring.</p>
+  <table>
+    <tr><th>Account Type</th><th>Notes</th></tr>
+    <tr><td><b>ARM-based account (current/recommended)</b></td><td>Created as a standard Azure resource via the Azure portal ("+ Create a resource" → Azure AI Video Indexer). Managed like any Azure resource: resource groups, RBAC, Azure Policy, managed identity (system- or user-assigned), tags, ARM templates/Bicep. Requires linking a <b>Standard General Purpose v2 storage account</b>. Can optionally connect an <b>Azure OpenAI resource</b> for generative AI features (e.g., summarization).</td></tr>
+    <tr><td><b>Classic account (legacy)</b></td><td>Older account model created directly through the Video Indexer web portal, not natively an ARM resource. Microsoft's guidance is to <b>migrate/connect classic accounts to ARM-based accounts</b> for full Azure governance (RBAC via Entra ID, monitoring, managed identity) — classic accounts lack these integrations.</td></tr>
+    <tr><td><b>Trial account</b></td><td>Free, no Azure subscription required, cloud-based only — good for the web portal demo, but the <b>API cannot be used with a trial account</b>; you must create a paid/standard account to call the REST API.</td></tr>
+  </table>
+  <h3>Creating an Account — Required Fields</h3>
+  <ul>
+    <li>Subscription, Resource group, Resource name, Region</li>
+    <li><b>Storage account</b> (Standard GPv2) — mandatory, stores source media and artifacts</li>
+    <li>Optional Azure OpenAI resource connection (for generative AI insights like summaries)</li>
+    <li>System-assigned and/or user-assigned <b>managed identity</b> (needed to access the storage account securely)</li>
+  </ul>
+  <h3>Permissions Needed to Create the Resource</h3>
+  <ul>
+    <li>Subscription-level <b>Owner</b>, OR both <b>Contributor</b> + <b>User Access Administrator</b> roles</li>
+  </ul>
+  <div class="retire"><b>Responsible AI gate:</b> Face identification, face customization (Person models), and celebrity recognition are <b>Limited Access</b> features — available only to Microsoft-managed customers/partners who apply via the Face Recognition intake form. Don't assume these are open to every subscriber.</div>
+  <div class="must-know"><b>Must know:</b> New/production deployments should use an <b>ARM-based account</b> (full Azure RBAC, managed identity, monitoring integration); <b>classic accounts should be migrated to ARM</b>. The REST API requires a paid ARM/standard account — trial accounts are portal-only.</div>
+</section>
+
+<section id="workflow">
+  <h2>3. Upload / Index Workflow</h2>
+  <p>The basic lifecycle for processing a video through VI:</p>
+  <ol>
+    <li><b>Create</b> an Azure AI Video Indexer (standard/ARM) account linked to a storage account.</li>
+    <li><b>Upload</b> a media file — two supported methods:
+      <ul>
+        <li>Upload to a URL (recommended): a public URL or a <b>SAS URL</b> to a blob in Azure Storage; if storage is behind a firewall, pass <code>useManagedIdentityToDownloadVideo</code> so VI's managed identity can fetch it.</li>
+        <li>Send the video as a <b>byte array</b> in the request body.</li>
+      </ul>
+    </li>
+    <li><b>Index</b> — choose indexing options: language(s), indexing preset (standard/advanced/basic, audio-only), privacy (private/public), and optional <b>custom model IDs</b> (person model, language model, brands model) and advanced post-production options (clapper board, color bars).</li>
+    <li>VI runs the multi-model pipeline asynchronously; poll the <b>index/processing state</b> until <code>Processed</code>.</li>
+    <li><b>Consume results</b>: retrieve the JSON insights via API, view them in the web portal, or embed <b>widgets</b> (Insights/Player/Editor) in your own app.</li>
+    <li>Optionally <b>re-index</b> a video later (e.g., after adding a new person to a Person model, or enabling a new insight type) to regenerate/update insights.</li>
+  </ol>
+  <div class="tip">You can't use the Video Indexer <b>API</b> with a trial account — automation/CI pipelines require a standard (paid/ARM) account and API subscription keys from the API developer portal.</div>
+  <div class="must-know"><b>Must know:</b> The recommended upload method is a <b>SAS URL to Blob Storage</b> (not embedding bytes) — for firewall-protected storage accounts, use the <code>useManagedIdentityToDownloadVideo</code> parameter so VI can authenticate via managed identity instead of a public endpoint.</div>
+</section>
+
+<section id="insights">
+  <h2>4. Insights Catalogue (30+ AI Models)</h2>
+  <p>When a video is indexed, VI runs 30+ models and returns a single JSON with time-ranged <b>insight instances</b>. Group them into visual, audio, and inferred/aggregated categories:</p>
+  <h3>Visual Insights</h3>
+  <table>
+    <tr><th>Insight</th><th>What it detects</th></tr>
+    <tr><td>Face detection</td><td>Detects &amp; groups faces; names recognized/celebrity faces; shows % of video appearance.</td></tr>
+    <tr><td>Labels identification</td><td>Objects/actions (e.g., "sunglasses", "swimming") across 50+ translatable categories.</td></tr>
+    <tr><td>Object detection</td><td>Specific objects: cars, handbags, backpacks, laptops, etc.</td></tr>
+    <tr><td>Observed people / matched faces</td><td>Detects people by appearance (clothing) and timeframe, matches to known faces.</td></tr>
+    <tr><td>OCR</td><td>Extracts on-screen text (signs, product labels, captions).</td></tr>
+    <tr><td>Scenes, shots, keyframes</td><td>Scene = event with related shots; shot = frames between visual cuts; keyframe = best representative frame of a shot.</td></tr>
+    <tr><td>Clapper board / digital patterns (color bars)</td><td>Post-production metadata (scene/take/roll) — opt-in via Advanced settings at indexing time.</td></tr>
+  </table>
+  <h3>Audio Insights</h3>
+  <table>
+    <tr><th>Insight</th><th>What it detects</th></tr>
+    <tr><td>Transcription / translation / language ID</td><td>Speech-to-text + translation across 50+ languages; auto language identification.</td></tr>
+    <tr><td>Keyword extraction</td><td>Important keywords from single- or multi-language audio.</td></tr>
+    <tr><td>Named entities</td><td>NLP over transcript + OCR text to find people, locations, brands.</td></tr>
+    <tr><td>Audio effects detection</td><td>Classifies acoustic events: laughter, crowd reaction, alarms, sirens.</td></tr>
+    <tr><td>Text-based emotion detection</td><td>Classifies transcript sentences as anger / fear / joy / sad / none.</td></tr>
+    <tr><td>Speakers</td><td>Speaker diarization — who said what and when.</td></tr>
+  </table>
+  <h3>Inferred / Aggregated Insights</h3>
+  <ul>
+    <li><b>Topics inference</b> — derived from transcript + OCR + recognized celebrities.</li>
+    <li><b>Brands detection</b> — identifies company/product/service mentions (speech or visual text) from the Bing brands database, customizable with include/exclude lists.</li>
+    <li><b>Sentiments</b> — aggregated positive/negative/neutral over time ranges.</li>
+    <li><b>Video summarization</b> — generative-AI-produced textual summary of the video (requires connected Azure OpenAI resource).</li>
+  </ul>
+  <div class="must-know"><b>Must know:</b> Every insight is returned as <b>time-ranged "instances"</b> inside the JSON — this is how VI lets you jump directly to the moment in a video where a face, keyword, brand, or emotion occurs, which is the basis of "deep search" scenarios.</div>
+</section>
+
+<section id="json">
+  <h2>5. JSON Output Structure</h2>
+  <p>Indexing produces one consolidated JSON document per video (the "Video Indexer JSON" / insights schema). Key top-level concepts to recognize for the exam:</p>
+  <ul>
+    <li><b>Summarized insights</b> vs. <b>detailed insights</b> — summarized = aggregated totals (e.g., list of unique faces, keywords); detailed = per-instance time ranges with start/end timestamps.</li>
+    <li>Each insight type (faces, keywords, labels, sentiments, topics, brands, transcript, OCR, speakers, emotions, scenes/shots/keyframes) appears as its own JSON node, each containing an <b>instances[]</b> array with <code>start</code>/<code>end</code> timecodes.</li>
+    <li>The JSON can be retrieved via the <b>Get Video Index</b> REST API call and is the artifact typically pushed into a search index (e.g., Azure AI Search) or used to ground LLM prompts.</li>
+  </ul>
+  <div class="tip">You don't need to memorize every JSON field name for AI-103 — know that VI's output is a <b>structured, queryable JSON</b> you can pass downstream (to Azure AI Search, a database, or an LLM as grounding context) rather than needing to parse raw video yourself.</div>
+  <div class="must-know"><b>Must know:</b> Insight JSON separates <b>summarized</b> (aggregate) data from <b>detailed, time-stamped instances</b> — the time-stamped instances are what enables "jump to moment in video" search and retrieval experiences.</div>
+</section>
+
+<section id="widgets">
+  <h2>6. Widgets for Embedding</h2>
+  <p>VI supports embedding <b>three widget types</b> directly into your own web app via iframe-style URLs — no need to build your own UI from the JSON:</p>
+  <table>
+    <tr><th>Widget</th><th>Purpose</th></tr>
+    <tr><td><b>Insights widget</b></td><td>Renders all visual insights (people, keywords, labels, sentiments, emotions, topics, transcript, OCR, speakers, scenes, named entities, objects, etc.). Configurable via URL params: <code>widgets=</code> (which insight panels to show), <code>controls=</code> (search, download, presets, language), <code>language=</code>, <code>locale=</code>, <code>tab=</code>, <code>search=</code>.</td></tr>
+    <tr><td><b>Player widget</b></td><td>Embeds just the video player (with optional insight overlays) without the full insights panel.</td></tr>
+    <tr><td><b>Editor widget</b></td><td>Embeds an editing experience allowing manual correction/refinement of insights (e.g., fixing a mislabeled face or transcript line).</td></tr>
+  </table>
+  <div class="tip">Example URL pattern: <code>https://www.videoindexer.ai/embed/insights/&lt;accountId&gt;/&lt;videoId&gt;/?widgets=people,keywords&amp;controls=search,download</code></div>
+  <div class="must-know"><b>Must know:</b> The three embeddable widget types are <b>Insights, Player, Editor</b> — use the Insights widget when you want a ready-made UI over the extracted metadata without writing custom JSON-rendering code.</div>
+</section>
+
+<section id="customize">
+  <h2>7. Custom Models (Content Model Customization)</h2>
+  <p>VI lets you tailor its default AI models to your domain. Three customizable model types:</p>
+  <h3>Person (Face) Model</h3>
+  <ul>
+    <li>Pairs a person's <b>name</b> with sample face images so VI recognizes that person in future (and re-indexed) videos.</li>
+    <li>You can create <b>multiple Person models per account</b> (e.g., one per channel/show).</li>
+    <li>Limits: up to <b>1 million people per model</b>, <b>50 person models per account</b>.</li>
+    <li>Assign a specific person model ID at upload/index/reindex time; if omitted, VI uses the account's <b>default</b> person model.</li>
+    <li>Gated under Responsible AI <b>Limited Access</b> — requires application/approval, available only to Microsoft-managed customers/partners.</li>
+  </ul>
+  <h3>Brands Model</h3>
+  <ul>
+    <li>Detects brand mentions in speech/visual text, informed by Bing's brands database.</li>
+    <li>Customize by: toggling Bing-suggested brand detection on/off, adding an <b>Include list</b> (custom brands not in Bing, each with name/category/description/reference URL), and an <b>Exclude list</b> (suppress unwanted brand matches).</li>
+    <li>Custom brand model is scoped to the account where it was created (not shared across accounts).</li>
+    <li>If you add a brand after indexing, you must <b>re-index</b> the video (Advanced options → Brand categories → All brands) to pick it up.</li>
+  </ul>
+  <h3>Language Model</h3>
+  <ul>
+    <li>Customizes speech-to-text recognition for domain-specific vocabulary (jargon, product names, acronyms) to improve transcription accuracy, similar in spirit to Custom Speech in Azure AI Speech.</li>
+  </ul>
+  <div class="tip">All three customization types (Person, Brands, Language) are managed from <b>Content model customization</b> in the Video Indexer web portal, or equivalently through the REST API.</div>
+  <div class="must-know"><b>Must know:</b> There are exactly three customizable content models — <b>Person, Brands, Language</b> — and Person/celebrity-recognition features require explicit Limited Access approval due to Responsible AI restrictions (don't expect them enabled by default on a new account).</div>
+</section>
+
+<section id="api">
+  <h2>8. API / SDK Integration Pattern</h2>
+  <ol>
+    <li>Create a <b>standard (paid) Video Indexer account</b> — trial accounts cannot call the API.</li>
+    <li>Sign in to the <b>API developer portal</b> (api-portal.videoindexer.ai) with the account; copy the <b>primary/secondary subscription keys</b> from your Profile → Subscriptions.</li>
+    <li>Call <b>Get-Account-Access-Token</b> to obtain a short-lived ARM-authenticated access token, then use that token for subsequent calls (upload, get-index, re-index, get-insights, customize models, etc.).</li>
+    <li>Use official code samples (Azure-Samples/azure-video-indexer-samples) for language-specific authorization flows (.NET, Python, etc.).</li>
+    <li>Typical calls: <b>Upload Video</b> (URL or byte array), <b>Get Video Index</b> (poll for processing state / retrieve JSON), <b>Get Video Index by language</b>, re-index, and model-customization endpoints (Person/Brands/Language).</li>
+  </ol>
+  <div class="tip">Because ARM-based accounts integrate with Microsoft Entra ID and Azure RBAC, production apps typically call the Azure Resource Manager control-plane APIs first to obtain an <b>account access token</b>, then call the VI data-plane REST API with that token — this two-step auth flow is a common exam trap vs. the old classic-account API-key-only model.</div>
+  <div class="must-know"><b>Must know:</b> You cannot call the Video Indexer API with a <b>trial account</b> — API access requires a standard/paid account plus subscription keys obtained from the API developer portal, and calls are authorized with a short-lived <b>account access token</b>.</div>
+</section>
+
+<section id="scenarios">
+  <h2>9. Integration Scenarios &amp; RAG Grounding</h2>
+  <ul>
+    <li><b>Deep/semantic search</b>: push extracted insights (transcripts, keywords, faces, topics) into <b>Azure AI Search</b> as an index, enabling users to search "moments" inside videos, not just filenames.</li>
+    <li><b>Content moderation</b>: use detected labels/OCR/transcript to flag inappropriate content (note: automated moderation review isn't available in Azure Government).</li>
+    <li><b>Accessibility &amp; localization</b>: auto-generated captions/subtitles via transcription + translation insights.</li>
+    <li><b>Monetization/contextual advertising</b>: use brand and topic insights to match ads to video segments.</li>
+    <li><b>RAG grounding for LLM/agent apps (AI-103 relevance)</b>: feed VI's structured JSON insights (transcript chunks, topics, summaries, entities) as <b>grounding context</b> into a prompt or vector store so an agent can answer questions about video content, cite the exact timestamp, or generate a highlight reel — this is the direct tie-in to "process and interpret video segments" in multimodal agent workflows.</li>
+    <li><b>Generative video summarization</b>: when an Azure OpenAI resource is connected to the VI account, VI can produce natural-language video summaries directly, useful as a pre-chunked grounding artifact for RAG.</li>
+  </ul>
+  <div class="must-know"><b>Must know:</b> For AI-103 "video analysis / multimodal" scenarios, the expected pattern is: <b>Index video with VI → retrieve time-stamped JSON insights → index/store in Azure AI Search or a vector store → use as grounding/context for an LLM or agent</b>, rather than sending raw video frames directly to an LLM.</div>
+</section>
+
+<section id="pricing">
+  <h2>10. Pricing &amp; Tiers (Basics)</h2>
+  <ul>
+    <li>VI is billed based on <b>indexing minutes</b> processed (consumption-based), with separate rates for Basic/Standard vs. Advanced indexing presets (advanced presets run more models — e.g., detailed audio/visual insights — at higher cost).</li>
+    <li>A <b>free trial account</b> provides a limited number of free indexing minutes without an Azure subscription, portal-only, no API access.</li>
+    <li>Paid/standard (ARM) accounts are billed through the linked Azure subscription alongside the required Standard GPv2 storage account costs (storage + transactions) and any connected Azure OpenAI consumption (for generative summarization).</li>
+    <li>Video Indexer enabled by Azure Arc has its own licensing/registration process (sign-up required) distinct from the cloud SaaS billing model.</li>
+  </ul>
+  <div class="tip">For the exam, focus on the <b>conceptual distinction</b> (trial vs. standard/paid, basic vs. advanced indexing presets drive cost) rather than memorizing exact per-minute prices, which change over time.</div>
+  <div class="must-know"><b>Must know:</b> Pricing scales with <b>indexing minutes and preset depth</b> (basic/standard vs. advanced insights) — trial accounts are free but capped, portal-only, and cannot call the API.</div>
+</section>
+
+<footer>
+  Compiled from Microsoft Learn — Azure AI Video Indexer documentation (video-indexer-overview, insights-overview, create-account,
+  customize-person-model-how-to, customize-brands-model-how-to, video-indexer-use-apis, video-indexer-embed-widgets) · Study notes generated 2026-11-14.
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI-103 Study Notes: Azure AI Speech</title>
+<style>
+  :root{
+    --accent:#0078D4; --accent-dark:#004578; --bg:#f5f7fa; --card:#ffffff;
+    --warn-bg:#fff4e5; --warn-border:#e67e22; --tip-bg:#e8f4fd; --tip-border:#0078D4;
+  }
+  body{font-family:'Segoe UI',Calibri,Arial,sans-serif;background:var(--bg);color:#222;margin:0;padding:0;line-height:1.55;}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 24px 80px;}
+  header.hero{background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;padding:36px 24px;border-radius:0 0 16px 16px;}
+  header.hero h1{margin:0 0 8px;font-size:26px;}
+  header.hero p{margin:0;opacity:.9;font-size:14px;}
+  .badge{display:inline-block;background:rgba(255,255,255,.2);padding:4px 10px;border-radius:12px;font-size:12px;margin-top:10px;margin-right:6px;}
+  .section-nav{background:var(--card);border-radius:10px;padding:16px 22px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin:20px 0;font-size:14px;}
+  .section-nav a{color:var(--accent-dark);text-decoration:none;display:inline-block;margin:3px 10px 3px 0;}
+  .section-nav a:hover{text-decoration:underline;}
+  section{background:var(--card);border-radius:10px;padding:22px 26px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin:22px 0;}
+  section h2{color:var(--accent-dark);border-bottom:2px solid var(--accent);padding-bottom:6px;margin-top:0;font-size:21px;}
+  h3{color:var(--accent-dark);margin-top:22px;font-size:16px;}
+  .retire{background:var(--warn-bg);border-left:5px solid var(--warn-border);padding:14px 18px;border-radius:6px;margin:14px 0;font-size:14px;}
+  .tip{background:var(--tip-bg);border-left:5px solid var(--tip-border);padding:12px 16px;border-radius:6px;margin:12px 0;font-size:13.5px;}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;}
+  th,td{border:1px solid #d8dee4;padding:7px 9px;text-align:left;}
+  th{background:var(--accent);color:#fff;}
+  tr:nth-child(even){background:#f0f4f8;}
+  ul,ol{margin:8px 0;padding-left:22px;}
+  li{margin-bottom:4px;}
+  .keyword{background:#fffbdd;padding:1px 5px;border-radius:4px;font-weight:600;}
+  code{background:#eef1f4;padding:2px 5px;border-radius:4px;font-size:13px;}
+  .must-know{background:#eafaf1;border:1px solid #b7e4c7;border-radius:8px;padding:10px 16px;margin-top:14px;font-size:13.5px;}
+  .must-know b{color:#1e7e34;}
+  footer{text-align:center;color:#888;font-size:12px;margin-top:50px;}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap" style="padding:0;">
+    <h1>Azure AI Speech — AI-103 Study Notes</h1>
+    <p>Exam AI-103: Developing AI Apps and Agents on Azure &middot; Domain: "Implement speech solutions" (part of text/speech analysis, 10–15% weight)</p>
+    <span class="badge">Speech-to-text</span>
+    <span class="badge">Text-to-speech</span>
+    <span class="badge">Custom Speech</span>
+    <span class="badge">Speech Translation</span>
+    <span class="badge">Voice Live / Agents</span>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <nav class="section-nav">
+    <a href="#overview">1. Service Overview &amp; Resources</a>
+    <a href="#stt">2. Speech-to-Text</a>
+    <a href="#tts">3. Text-to-Speech</a>
+    <a href="#custom">4. Custom Speech</a>
+    <a href="#translation">5. Speech Translation</a>
+    <a href="#agents">6. Speech as an Agent Modality</a>
+    <a href="#speaker">7. Speaker Recognition</a>
+    <a href="#pricing">8. Resources, Regions &amp; Pricing</a>
+  </nav>
+
+  <section id="overview">
+    <h2>1. Service Overview &amp; Resources</h2>
+    <p>Azure AI Speech (now branded as part of <b>Azure AI Foundry "Foundry Tools"</b>) provides speech-to-text, text-to-speech, speech translation, and live voice-agent capabilities through an Azure AI Foundry / Cognitive Services <b>Speech resource</b>. It can run in the cloud or at the edge via <span class="keyword">containers</span>, and is accessible from the <b>Speech SDK</b>, <b>Speech CLI (<code>spx</code>)</b>, and <b>REST APIs</b>.</p>
+    <h3>Common exam-relevant scenarios</h3>
+    <ul>
+      <li><b>Captioning</b> — synchronized live/offline captions, profanity filtering, partial results, language identification for multilingual content.</li>
+      <li><b>Audio content creation</b> — neural voices for chatbots/voice agents, e-books → audiobooks, in-car navigation.</li>
+      <li><b>Call center analytics</b> — real-time or batch transcription of calls, PII redaction, sentiment/insight extraction.</li>
+      <li><b>Language learning</b> — pronunciation assessment, real-time transcription, read-aloud materials.</li>
+      <li><b>Voice Live</b> — natural, humanlike speech-to-speech conversational agent interfaces (see Section 6).</li>
+      <li><b>Speech translation</b> — real-time speech-to-speech translation; translated video generation.</li>
+      <li><b>Video avatar creation</b> — synthetic talking-avatar videos (real-time and batch).</li>
+    </ul>
+    <div class="must-know"><b>Must know:</b> Azure AI Speech is consumed through ONE Speech (or multi-service Azure AI Foundry) resource that exposes STT, TTS, translation, and voice capabilities together — you don't provision separate resources per feature.</div>
+  </section>
+
+  <section id="stt">
+    <h2>2. Speech-to-Text (STT)</h2>
+    <p>Speech to text converts audio into text. Azure offers three processing modes — know when to pick each for the exam:</p>
+    <table>
+      <tr><th>Mode</th><th>Description</th><th>Best for</th></tr>
+      <tr><td><b>Real-time transcription</b></td><td>Streams audio and returns interim + final results instantly via SDK/CLI/REST (short audio)</td><td>Live captioning, contact-center voice agents, agent-assist, voice assistants/chatbots</td></tr>
+      <tr><td><b>Fast transcription</b></td><td>Synchronous transcription of an audio file; fastest turnaround with predictable latency</td><td>Video editing, voicemail transcription, meeting notes, quick post-call analytics</td></tr>
+      <tr><td><b>Batch transcription</b></td><td>Asynchronous processing of large volumes of stored audio via REST</td><td>Post-call QA/compliance, bulk subtitle/caption generation, training data pipelines</td></tr>
+    </table>
+    <h3>Continuous recognition</h3>
+    <p>Real-time (continuous) recognition is event-driven: the SDK raises <code>Recognizing</code> (interim) and <code>Recognized</code> (final) events as audio streams in, instead of a single blocking call — essential for live/conversational scenarios and for agent architectures that need to react as the user speaks.</p>
+    <h3>Key STT capabilities</h3>
+    <ul>
+      <li><b>Multichannel transcription</b> — real time STT can transcribe up to two audio channels independently and tag each result with its source channel (e.g., two sides of a support call).</li>
+      <li><b>Diarization</b> — distinguishes and labels up to 35 different speakers in one recording; useful for meetings/multi-speaker calls.</li>
+      <li><b>Phrase lists</b> — supply domain-specific words/phrases (jargon, proper nouns) to bias recognition accuracy without full custom-model training.</li>
+      <li><b>Language identification (LID)</b> — automatically detects the spoken language when it isn't known in advance, or across multilingual audio.</li>
+    </ul>
+    <h3>Model options (fast transcription endpoint)</h3>
+    <table>
+      <tr><th>Model</th><th>Use when you need…</th></tr>
+      <tr><td>Azure LLM Speech</td><td>Flagship LLM-powered model — best contextual/multilingual accuracy, custom prompting, built-in translate mode</td></tr>
+      <tr><td>Azure Transcribe</td><td>General-purpose default model with diarization, phrase lists, LID, timestamps</td></tr>
+      <tr><td>MAI-Transcribe-2</td><td>Alternative model to evaluate for workload-specific accuracy/performance (check preview status)</td></tr>
+    </table>
+    <div class="tip">For the exam, remember the simple decision rule: <b>streaming/live input → real-time</b>; <b>single file, need result fast → fast transcription</b>; <b>large stored volumes, not time-sensitive → batch transcription</b>.</div>
+    <div class="must-know"><b>Must know:</b> Real-time STT is the correct choice for conversational/agentic interactions (voice assistants, contact-center agent assist) because it streams interim results; batch transcription is asynchronous and unsuitable for live conversation.</div>
+  </section>
+
+  <section id="tts">
+    <h2>3. Text-to-Speech (TTS)</h2>
+    <p>Text to speech (speech synthesis) converts text into humanlike audio using deep neural networks, reducing listening fatigue versus legacy concatenative synthesis.</p>
+    <h3>Voice options</h3>
+    <ul>
+      <li><b>Standard (neural) voices</b> — 100+ languages/locales, available out-of-the-box at 24 kHz and high-fidelity 48 kHz; browse the Voice Gallery in Speech Studio.</li>
+      <li><b>Custom voice</b> — umbrella term for <i>professional voice fine-tuning</i> (brand voice from studio recordings) and <i>personal voice</i> (an individual's own voice, limited-access/responsible-use gated). Requires application/approval before use.</li>
+      <li><b>HD voices / Azure OpenAI voices</b> — higher-quality options for more versatile or expressive scenarios.</li>
+    </ul>
+    <h3>SSML (Speech Synthesis Markup Language)</h3>
+    <p>SSML is the XML-based language used to fine-tune TTS output. Candidates should recognize it can control:</p>
+    <ul>
+      <li>Pitch, speaking rate, volume, and pauses</li>
+      <li>Pronunciation (phoneme tags) and custom lexicons</li>
+      <li>Speaking styles and multiple voices within one document</li>
+      <li>Multilingual voice switching (for multilingual neural voices)</li>
+    </ul>
+    <div class="tip">Example SSML skeleton: <code>&lt;speak version="1.0" xml:lang="en-US"&gt;&lt;voice name="en-US-AvaNeural"&gt;Hello, &lt;break time="300ms"/&gt; how can I help?&lt;/voice&gt;&lt;/speak&gt;</code></div>
+    <h3>Synthesis modes</h3>
+    <ul>
+      <li><b>Real-time speech synthesis</b> — via Speech SDK/REST, for interactive apps (chat/voice agents).</li>
+      <li><b>Batch synthesis API</b> — asynchronous synthesis for audio longer than 10 minutes (audiobooks, lectures); you poll for completion and download output rather than receiving it live.</li>
+    </ul>
+    <h3>Visemes</h3>
+    <p><b>Visemes</b> are the key mouth/lip/jaw poses corresponding to phonemes; the Speech SDK can emit viseme events to drive facial/avatar animation (currently richest support for en-US neural voices).</p>
+    <h3>Custom Neural Voice (CNV) — concepts</h3>
+    <ul>
+      <li>Built from a handful of studio-quality audio samples + transcriptions.</li>
+      <li>Two flavors: <b>professional voice fine-tuning</b> (brand voices, gated access) and <b>personal voice</b> (per-user, usable with Live Interpreter for speech-to-speech translation in the user's own voice).</li>
+      <li>Training/hosting are billed separately: professional fine-tuning is measured in <i>compute hours</i> (typ. 20–40 hrs single-style, ~90 hrs multi-style, capped at 96 hrs); endpoint hosting billed hourly whenever the endpoint is active.</li>
+    </ul>
+    <div class="must-know"><b>Must know:</b> TTS billing counts every character sent in the SSML body (letters, numbers, spaces, punctuation, markup except <code>&lt;speak&gt;</code>/<code>&lt;voice&gt;</code> tags) — and each CJK character (Chinese/Japanese kanji/Korean hanja) counts as <b>two</b> characters for billing, even if no audio is produced due to a language mismatch.</div>
+  </section>
+
+  <section id="custom">
+    <h2>4. Custom Speech</h2>
+    <p>Custom speech lets you evaluate and improve speech-to-text accuracy for your domain. It can be applied to real-time STT, speech translation, and batch transcription.</p>
+    <h3>Why/when to use it</h3>
+    <ul>
+      <li>The default <b>Universal Language Model</b> (base model, trained by Microsoft, updated periodically) handles most general scenarios well.</li>
+      <li>Use a custom model when the base model mis-recognizes <b>domain-specific vocabulary</b> (medical terms, product names, acronyms) or struggles with specific <b>acoustic conditions</b> (background noise, accents, microphone quality).</li>
+      <li>You can train with text data (to add vocabulary), audio + transcriptions (to adapt to acoustic conditions), structured text (patterned data), and define custom pronunciations, inverse text normalization, custom rewrite, and custom profanity filtering.</li>
+      <li>Use <b>multiple custom models</b> when a domain has multiple sub-areas, each with its own vocabulary (e.g., different Olympic sports).</li>
+    </ul>
+    <h3>Custom speech workflow (Speech Studio)</h3>
+    <ol>
+      <li>Create a project and choose a base model.</li>
+      <li>Upload test data to evaluate current accuracy.</li>
+      <li>Train a model with transcripts/related text and audio.</li>
+      <li>Inspect recognition quality by listening to test audio vs. transcription.</li>
+      <li>Evaluate quantitatively using <b>Word Error Rate (WER)</b> — a high WER signals the need for more/better training data.</li>
+      <li>Deploy the model to a <b>custom endpoint</b> (required for real-time/translation use; <u>not required</u> for batch transcription, which can reference the trained model directly).</li>
+    </ol>
+    <div class="tip">You are billed for custom speech model usage and endpoint hosting, and (for base models created Oct 2023+) for training itself. If a custom model is only used for batch transcription, you can skip hosting a dedicated endpoint and save cost.</div>
+    <div class="must-know"><b>Must know:</b> Custom Speech = improving <i>accuracy/vocabulary recognition</i> for STT (via WER-driven training), which is distinct from Custom Neural Voice = creating a <i>unique synthesized voice</i> for TTS. The exam loves to swap these two.</div>
+  </section>
+
+  <section id="translation">
+    <h2>5. Speech Translation</h2>
+    <p>Speech translation provides end-to-end, real-time, multi-language translation of spoken audio, returning translated text, synthesized speech, or both.</p>
+    <h3>Two approaches</h3>
+    <table>
+      <tr><th>Approach</th><th>Description</th></tr>
+      <tr><td><b>Standard speech translation API</b></td><td>Send audio in a known source language; receive translated text and/or synthesized speech in a specified target language. One dedicated Speech Translation API.</td></tr>
+      <tr><td><b>Live Interpreter</b></td><td>A richer, conversational mode of real-time translation: auto-detects the spoken language (no need to pre-set it), supports mid-conversation language switching, low-latency speech-to-speech output, and can use the speaker's own "bring your own" personal voice for natural-sounding translated output.</td></tr>
+    </table>
+    <ul>
+      <li>Supports <b>multiple target languages</b> from a single input stream in one request.</li>
+      <li>Live Interpreter use cases: personal interpretation (phones, earbuds, AI glasses), contact-center multilingual support, international meetings.</li>
+    </ul>
+    <h3>Dedicated API vs. transcribe-then-translate (LLM/Foundry pipeline)</h3>
+    <p>For agentic/Foundry-based architectures there are two valid design patterns and the exam expects you to choose correctly:</p>
+    <ul>
+      <li><b>Dedicated Speech Translation API / Live Interpreter</b> — lowest latency, purpose-built for real-time speech-to-speech translation, ideal when translation is the primary scenario (e.g., live interpreter devices, multilingual contact centers).</li>
+      <li><b>Transcribe (STT) → translate with an LLM/text-translation step → optionally re-synthesize (TTS)</b> — a composable pipeline useful when you need custom business logic, grounding, or combined reasoning (e.g., summarize + translate + answer) as part of a larger agent orchestration, at the cost of extra hops/latency versus the dedicated API.</li>
+      <li><b>Azure LLM Speech</b> (fast transcription enhanced mode) also exposes a built-in <code>translate</code> operation that converts pre-recorded audio directly into text in a target language — a middle ground between the two approaches for file-based (not real-time streaming) workloads.</li>
+    </ul>
+    <div class="must-know"><b>Must know:</b> Choose the dedicated Speech Translation API / Live Interpreter for low-latency, real-time speech-to-speech translation; choose an STT-then-LLM-translate pipeline when the agent needs additional reasoning, grounding, or orchestration beyond simple translation.</div>
+  </section>
+
+  <section id="agents">
+    <h2>6. Speech as an Agent Modality (Voice Live API)</h2>
+    <p>The <b>Voice Live API</b> is Microsoft's managed solution for building voice-driven conversational agents — directly relevant to the AI-103 "agents" theme. Instead of manually chaining STT → LLM → TTS (which adds engineering complexity and perceived latency), Voice Live integrates speech recognition, generative AI reasoning, and text-to-speech into one unified, fully managed, low-latency interface.</p>
+    <h3>How it works</h3>
+    <ul>
+      <li>Developers send audio input and receive audio output, optional avatar visuals, and action/function triggers.</li>
+      <li>No need to deploy or manage the underlying generative models yourself — fully managed backend.</li>
+      <li>Communication is via <b>WebSocket</b> events; API design is intentionally compatible with the <b>Azure OpenAI Realtime API</b> event shapes, so existing realtime-API client code is largely reusable.</li>
+    </ul>
+    <h3>Key agent-relevant features</h3>
+    <ul>
+      <li><b>Model choice</b>: GPT-Realtime, GPT-5, GPT-4.1, GPT-4o, Phi, and more — trade off intelligence, latency, and cost; all fully managed (no capacity planning).</li>
+      <li><b>Function calling</b> — lets the voice agent call external tools/APIs and ground responses (the "VoiceRAG" pattern: retrieval-augmented voice responses).</li>
+      <li><b>Conversational quality features</b>: noise suppression, echo cancellation, robust interruption detection, advanced end-of-turn (turn-taking) detection for natural pauses.</li>
+      <li><b>Customization</b>: phrase lists or custom speech models for input recognition; custom voice for branded output; avatar integration for a visual identity.</li>
+      <li>Broad locale coverage: 140+ locales for STT, 600+ standard voices across 150+ locales for TTS.</li>
+    </ul>
+    <h3>Multimodal reasoning from audio</h3>
+    <p>Because Voice Live routes audio directly to a multimodal/generative model (rather than a hard STT→text→LLM boundary), the agent can reason over tone, pauses, and full acoustic context in addition to transcribed words — enabling more natural handling of interruptions and ambiguity than a traditional STT-then-text-LLM pipeline.</p>
+    <div class="tip">For scenarios where you still want full manual control (or need to combine with services Voice Live doesn't natively support), the classic composable pattern is still valid: real-time STT → your orchestration/LLM/agent logic → TTS output. Voice Live is the "fast path" that collapses this chain for most conversational voice-agent needs.</div>
+    <div class="must-know"><b>Must know:</b> Voice Live API = the managed, end-to-end speech-to-speech agent service (STT + LLM + TTS + turn-taking, in one WebSocket API, Azure-OpenAI-Realtime-API compatible) — this is the exam's answer whenever a scenario calls for "build a low-latency conversational voice agent without orchestrating separate speech components."</div>
+  </section>
+
+  <section id="speaker">
+    <h2>7. Speaker Recognition</h2>
+    <div class="retire">
+      <b>Documentation note:</b> The dedicated "Speaker Recognition overview" page has been retired/merged into the main Azure Speech overview as the service surface has evolved (current Microsoft Learn navigation redirects it to the Speech overview page). Treat detailed speaker-recognition API specifics as lower priority for current exam versions, but understand the underlying concepts below, since speaker differentiation still appears via <b>diarization</b> in STT and related voice-identity scenarios.
+    </div>
+    <h3>Core concepts to know conceptually</h3>
+    <ul>
+      <li><b>Speaker verification</b> — confirms whether an audio sample matches a specific enrolled speaker ("is this person who they claim to be?") — a 1:1 comparison, used for voice-based authentication.</li>
+      <li><b>Speaker identification</b> — determines <i>which</i> enrolled speaker (from a group) produced a given audio sample — a 1:N comparison, used to attribute speech to a known set of people.</li>
+      <li><b>Diarization</b> (covered in Section 2) is the related but distinct capability of separating/labeling anonymous speakers ("Speaker 1", "Speaker 2") within a single recording <i>without</i> needing pre-enrolled voice profiles — this is the capability most likely to be tested today within the STT feature set.</li>
+    </ul>
+    <div class="must-know"><b>Must know:</b> Don't confuse <i>diarization</i> (labels anonymous speakers within one recording, no enrollment needed, part of STT) with <i>speaker verification/identification</i> (matches audio against enrolled known-speaker voice profiles for authentication/attribution).</div>
+  </section>
+
+  <section id="pricing">
+    <h2>8. Resources, Regions &amp; Pricing Basics</h2>
+    <ul>
+      <li>All Speech capabilities (STT, TTS, translation, Voice Live, custom speech/voice) are provisioned through a single <b>Speech</b> resource or a <b>multi-service Azure AI Foundry resource</b> — you don't need separate resources per feature.</li>
+      <li>Availability varies by <b>region</b>; some capabilities (e.g., custom speech audio-data training, certain Voice Live models/streaming transcription variants) require specific regions with dedicated hardware — always check the regions table for a given feature before assuming global availability.</li>
+      <li><b>Containers</b> are available for several Speech features so you can run recognition/synthesis at the edge or disconnected from the cloud, for data-residency or offline needs.</li>
+      <li><b>Billing models differ by feature</b>:
+        <ul>
+          <li>STT: typically billed per audio-hour/minute processed (real-time, fast, or batch).</li>
+          <li>TTS: billed per character of input text/SSML (see CJK double-counting rule above).</li>
+          <li>Custom voice: billed for training compute-hours plus endpoint hosting hours; personal voice adds per-day profile storage billing.</li>
+          <li>Custom speech: billed for model usage/endpoint hosting, and for training if the base model is from Oct 2023 or later.</li>
+        </ul>
+      </li>
+    </ul>
+    <div class="must-know"><b>Must know:</b> A single Speech/Foundry resource exposes STT, TTS, translation, and Voice Live together; always double-check regional availability before designing a solution around custom speech training, Voice Live model choice, or streaming-specific features, since not every capability ships in every region.</div>
+  </section>
+
+</div>
+
+<footer>
+  Compiled from Microsoft Learn — Azure AI Speech documentation (Overview, Speech-to-Text, Text-to-Speech, Custom Speech, Speech Translation, Voice Live API). Study notes prepared 2026-11-14 for Microsoft Certification Exam AI-103.
+</footer>
+
+</body>
+</html>

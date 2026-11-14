@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI-103 Study Notes: Azure AI Document Intelligence</title>
+<style>
+  :root{
+    --accent:#0078D4; --accent-dark:#004578; --bg:#f5f7fa; --card:#ffffff;
+    --warn-bg:#fff4e5; --warn-border:#e67e22; --tip-bg:#e8f4fd; --tip-border:#0078D4;
+  }
+  body{font-family:'Segoe UI',Calibri,Arial,sans-serif;background:var(--bg);color:#222;margin:0;padding:0;line-height:1.55;}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 24px 80px;}
+  header.hero{background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;padding:36px 24px;border-radius:0 0 16px 16px;}
+  header.hero h1{margin:0 0 8px;font-size:26px;}
+  header.hero p{margin:0;opacity:.9;font-size:14px;}
+  .badge{display:inline-block;background:rgba(255,255,255,.2);padding:4px 10px;border-radius:12px;font-size:12px;margin-top:10px;margin-right:6px;}
+  .section-nav{background:var(--card);border-radius:10px;padding:16px 22px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin:20px 0;font-size:14px;}
+  .section-nav a{color:var(--accent-dark);text-decoration:none;display:inline-block;margin:3px 10px 3px 0;}
+  .section-nav a:hover{text-decoration:underline;}
+  section{background:var(--card);border-radius:10px;padding:22px 26px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin:22px 0;}
+  section h2{color:var(--accent-dark);border-bottom:2px solid var(--accent);padding-bottom:6px;margin-top:0;font-size:21px;}
+  h3{color:var(--accent-dark);margin-top:22px;font-size:16px;}
+  .retire{background:var(--warn-bg);border-left:5px solid var(--warn-border);padding:14px 18px;border-radius:6px;margin:14px 0;font-size:14px;}
+  .tip{background:var(--tip-bg);border-left:5px solid var(--tip-border);padding:12px 16px;border-radius:6px;margin:12px 0;font-size:13.5px;}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;}
+  th,td{border:1px solid #d8dee4;padding:7px 9px;text-align:left;}
+  th{background:var(--accent);color:#fff;}
+  tr:nth-child(even){background:#f0f4f8;}
+  ul,ol{margin:8px 0;padding-left:22px;}
+  li{margin-bottom:4px;}
+  .keyword{background:#fffbdd;padding:1px 5px;border-radius:4px;font-weight:600;}
+  code{background:#eef1f4;padding:2px 5px;border-radius:4px;font-size:13px;}
+  .must-know{background:#eafaf1;border:1px solid #b7e4c7;border-radius:8px;padding:10px 16px;margin-top:14px;font-size:13.5px;}
+  .must-know b{color:#1e7e34;}
+  footer{text-align:center;color:#888;font-size:12px;margin-top:50px;}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap" style="padding:0;">
+    <h1>Azure AI Document Intelligence</h1>
+    <p>AI-103: Developing AI Apps and Agents on Azure — Objective: "Implement information extraction solutions" → "Extract content from documents"</p>
+    <span class="badge">Formerly: Form Recognizer</span>
+    <span class="badge">Current API: v4.0 (2024-11-30 GA)</span>
+    <span class="badge">Part of Azure AI Foundry / Content Understanding</span>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <nav class="section-nav">
+    <strong>Jump to:</strong>
+    <a href="#overview">1. What It Is</a>
+    <a href="#read">2. Read (OCR)</a>
+    <a href="#layout">3. Layout Model</a>
+    <a href="#prebuilt">4. Prebuilt Models</a>
+    <a href="#custom">5. Custom Models</a>
+    <a href="#output">6. Output Formats &amp; RAG</a>
+    <a href="#resources">7. Resources, Pricing &amp; Limits</a>
+    <a href="#exam">8. Exam Quick Reference</a>
+  </nav>
+
+  <section id="overview">
+    <h2>1. What Azure AI Document Intelligence Does</h2>
+    <p>Azure AI Document Intelligence (in Azure AI Foundry Tools) is a cloud-based service that uses machine learning and OCR to <span class="keyword">automate extraction of text, structure, and key data</span> from forms and documents — invoices, receipts, IDs, contracts, tax forms, mortgage applications, and general unstructured content. It turns scanned/digital documents into <span class="keyword">structured, business-ready JSON output</span> that applications can consume directly.</p>
+    <p>It sits within the broader <strong>Azure AI Content Understanding</strong> family: Document Intelligence provides <em>high-accuracy, deterministic extraction</em> from structured documents, while Content Understanding also offers LLM-powered analyzers for complex, unstructured, multimodal content. Together they prepare grounded data for intelligent agents and RAG apps.</p>
+    <h3>Three model families</h3>
+    <ul>
+      <li><strong>Document analysis models</strong> — Read (OCR) and Layout: general-purpose extraction with no predefined schema.</li>
+      <li><strong>Prebuilt models</strong> — Microsoft-trained models with fixed schemas for common document types (invoice, receipt, ID, W-2, etc.). No training required.</li>
+      <li><strong>Custom models</strong> — Train on your own labeled documents to extract fields specific to your business; can be composed together.</li>
+    </ul>
+    <div class="tip"><strong>Version note:</strong> v4.0 (2024-11-30) is the current GA API. v3.0 and v2.1 are retiring (v3.0 ends March 2029, v2.1 ends Sept 2027) — v4.0 merged the old "General document" key-value-pair model's functionality into the Layout model.</div>
+    <div class="must-know"><b>Must know:</b> Document Intelligence = deterministic, schema-driven extraction (OCR + layout + fields). If the exam scenario needs grounded, structured JSON from known document types, this is the answer — not a generic LLM call.</div>
+  </section>
+
+  <section id="read">
+    <h2>2. Read Model (OCR) — The Foundation</h2>
+    <p>The <span class="keyword">Read</span> model is the core OCR engine. It extracts <strong>printed and handwritten text</strong> from PDFs, images, and Office files (Word, Excel, PowerPoint, HTML). It detects paragraphs, text lines, words, their locations (bounding boxes), and detected languages.</p>
+    <p><strong>Critical relationship:</strong> Read is the underlying engine used by Layout, prebuilt models (Invoice, Receipt, ID, Health Insurance Card, W-2, etc.), and custom models. You rarely call Read in isolation unless you just need raw text (e.g., digitizing documents, compliance archiving, pre-processing handwritten notes before translation).</p>
+    <h3>Key capabilities</h3>
+    <ul>
+      <li>Model ID: <code>prebuilt-read</code></li>
+      <li>Higher resolution than Azure AI Vision Read OCR — optimized for dense/large text-heavy documents rather than real-time photo scenarios (use Vision Image Analysis Read for signs/labels/real-time UX).</li>
+      <li>Supports <strong>searchable PDF</strong> output — converts a scanned-image PDF into a PDF with embedded, searchable text (specify <code>output=pdf</code> on the analyze call). Only <code>prebuilt-read</code> supports this, at no extra cost.</li>
+      <li>Detects languages, paragraph boundaries, and (via add-ons) formulas, barcodes, and font styles.</li>
+    </ul>
+    <div class="tip">Read supports more file types than you'd expect: PDF, JPEG/PNG/BMP/TIFF/HEIF images, and DOCX/XLSX/PPTX/HTML office documents in v4.0.</div>
+    <div class="must-know"><b>Must know:</b> Read is the shared OCR foundation — every other model (Layout, prebuilt, custom) builds on it. If asked "what extracts handwritten + printed text as the base layer," the answer is <b>Read</b>, model ID <code>prebuilt-read</code>.</div>
+  </section>
+
+  <section id="layout">
+    <h2>3. Layout Model</h2>
+    <p>The <span class="keyword">Layout</span> model (<code>prebuilt-layout</code>) extracts text, tables, selection marks, and document structure <strong>without needing a predefined schema</strong>. It combines OCR with deep-learning structure analysis to identify both:</p>
+    <ul>
+      <li><strong>Geometric roles</strong> — text, tables, figures, selection marks (checkboxes).</li>
+      <li><strong>Logical roles</strong> — titles, section headings, page headers/footers, page numbers, footnotes.</li>
+    </ul>
+    <h3>Data extracted</h3>
+    <table>
+      <tr><th>Element</th><th>Description</th></tr>
+      <tr><td>Pages</td><td>Orientation angle, width/height, units per page</td></tr>
+      <tr><td>Paragraphs</td><td>Text blocks with bounding polygons + optional <code>role</code> (title, sectionHeading, pageHeader, pageFooter, pageNumber, footnote)</td></tr>
+      <tr><td>Lines &amp; words</td><td>Granular text with bounding boxes</td></tr>
+      <tr><td>Selection marks</td><td>Checkboxes / radio-style marks, with selected/unselected state</td></tr>
+      <tr><td>Tables</td><td>Row/column structure with header detection and per-cell bounding regions</td></tr>
+      <tr><td>Figures &amp; Sections</td><td>Detected images/charts and logical document sections</td></tr>
+      <tr><td>Markdown output</td><td>Response can be rendered as Markdown — ideal for downstream LLM/agent consumption</td></tr>
+    </table>
+    <p>Note: the legacy "General document" model (key-value pair extraction without training) has been folded into the Layout model's capabilities in v4.0 via the <code>keyValuePairs</code> add-on feature.</p>
+    <div class="tip">Use Layout when you need structure (tables, headings, checkboxes) from a document whose format <em>varies</em> or isn't covered by a prebuilt model — e.g., ingesting arbitrary PDFs/reports into a knowledge base.</div>
+    <div class="must-know"><b>Must know:</b> Layout = structure extraction (tables, selection marks, paragraph roles) with <b>no training needed</b>. It is the model exam questions point to for "extract tables/structure from generic documents" and for producing <b>Markdown</b> output for RAG ingestion.</div>
+  </section>
+
+  <section id="prebuilt">
+    <h2>4. Prebuilt Models</h2>
+    <p>Prebuilt models let you add intelligent document processing <strong>without training</strong> — Microsoft defines and maintains the field schema (e.g., <code>InvoiceDate</code> returned as type <code>date</code>, <code>SubTotal</code> as type <code>currency</code>), so normalization is automatic.</p>
+    <h3>Key prebuilt models to know</h3>
+    <table>
+      <tr><th>Category</th><th>Model</th><th>Extracts</th></tr>
+      <tr><td rowspan="4">Financial / legal</td><td>Invoice</td><td>Vendor, customer, line items, totals, dates, tax</td></tr>
+      <tr><td>Receipt</td><td>Merchant, transaction date, items, totals/tips (retail &amp; hotel variants)</td></tr>
+      <tr><td>Contract</td><td>Agreement details, party names/roles</td></tr>
+      <tr><td>Bank statement / Check / Pay stub / Credit card</td><td>Account info, payment details, compensation details</td></tr>
+      <tr><td>US tax</td><td>W-2, 1098, 1099, 1040 variants</td><td>Taxable compensation / variation-specific details</td></tr>
+      <tr><td>US mortgage</td><td>1003, 1004, 1005, 1008, closing disclosure</td><td>Loan application, appraisal, employment validation, loan terms</td></tr>
+      <tr><td>Personal ID</td><td>Identity (ID) document</td><td>Name, DOB, document number, expiration — passports/licenses</td></tr>
+      <tr><td>Personal ID</td><td>Health insurance card</td><td>Insurance coverage details</td></tr>
+      <tr><td>Personal ID</td><td>Marriage certificate</td><td>Certified marriage info</td></tr>
+      <tr><td>Contact</td><td>Business card <em>(v3.x)</em></td><td>Name, title, company, phone, email</td></tr>
+    </table>
+    <div class="tip">Business card prebuilt model existed in v2.1–3.1 but is not listed as a separate v4.0 model — in v4.0, financial/legal + US tax + US mortgage + personal ID categories are the current taxonomy. Know both for version-aware questions.</div>
+    <div class="must-know"><b>Must know:</b> Prebuilt models = zero training, fixed Microsoft-maintained schema, typed fields (date/currency/address/etc.). Use prebuilt <b>Invoice</b>/<b>Receipt</b>/<b>ID document</b> whenever the exam scenario names one of these common document types — don't build a custom model for things Microsoft already covers.</div>
+  </section>
+
+  <section id="custom">
+    <h2>5. Custom Models</h2>
+    <p>Custom models are trained on <strong>your own labeled datasets</strong> to extract fields specific to your business that aren't covered by a prebuilt schema. You label as few as 5 example documents of the same type to get started.</p>
+    <h3>Custom extraction model types</h3>
+    <table>
+      <tr><th>Type</th><th>Best for</th><th>Notes</th></tr>
+      <tr><td>Custom template (custom form)</td><td>Static, consistent visual layouts (structured forms, questionnaires)</td><td>Supports key-value pairs, selection marks, tables, signature fields, regions; any supported language; max 500 training pages, 50 MB training data</td></tr>
+      <tr><td>Custom neural (custom document)</td><td>Mixed-type / structured, semi-structured, and unstructured documents</td><td>Deep-learning base model fine-tuned on your data; supports overlapping fields, signature detection, table/row/cell confidence; max 50,000 training pages, 1 GB training data; generally <b>higher accuracy</b> — recommended default when supported</td></tr>
+      <tr><td>Custom composed</td><td>Combining multiple standalone custom extraction models under a single model ID</td><td>Submit one document, service matches it to the right component model</td></tr>
+    </table>
+    <h3>Custom classification model</h3>
+    <p>Identifies the <strong>document type/class</strong> before an extraction model runs — useful when incoming documents are a mixed bag (e.g., a scanned mailroom batch) and you need to route each to the correct extraction model. Supported since API 2023-07-31. Max training data: 1–2 GB, up to 10,000 pages.</p>
+    <div class="tip">Decision rule: <b>Prebuilt</b> if the doc type matches a Microsoft schema (invoice, receipt, ID, tax form) → fastest, no training. <b>Custom template</b> if your forms are static/consistent and prebuilt doesn't fit. <b>Custom neural</b> if layouts vary or documents are semi-/unstructured. <b>Classifier + composed model</b> if you receive multiple document types in one pipeline.</div>
+    <div class="must-know"><b>Must know:</b> Custom <b>neural</b> models are recommended over custom <b>template</b> models for higher accuracy whenever both are supported for your language — template models are template/layout-sensitive; neural models generalize better across layout variance.</div>
+  </section>
+
+  <section id="output">
+    <h2>6. Output Formats &amp; RAG/Agent Integration</h2>
+    <p>All analysis operations return <span class="keyword">structured JSON</span> (<code>analyzeResults</code>) containing pages, paragraphs, tables, key-value pairs, selection marks, and (for prebuilt/custom) typed <code>fields</code>. This structured, grounded output is what distinguishes Document Intelligence from a free-form LLM summarization approach.</p>
+    <h3>Key output features for downstream AI pipelines</h3>
+    <ul>
+      <li><strong>Markdown output</strong> (Layout model) — renders extracted content (headings, tables, paragraphs) as Markdown text, which is far easier for an LLM/agent to reason over than raw JSON geometry. This is the natural bridge into a <strong>RAG (retrieval-augmented generation)</strong> pipeline.</li>
+      <li><strong>Searchable PDF</strong> (Read model) — embeds extracted text into the original PDF for full-text search without altering the visual document.</li>
+      <li><strong>Query fields / keyValuePairs add-ons</strong> — let you request specific fields dynamically (query fields) or general key-value extraction, even outside a trained schema.</li>
+      <li><strong>Typed field values</strong> — string, number, integer, date, time, phoneNumber, currency, address — auto-normalized so downstream code doesn't need to parse raw strings.</li>
+    </ul>
+    <h3>Typical RAG / grounding pattern (exam-relevant)</h3>
+    <ol>
+      <li>Ingest documents (PDFs, scans, Office files) → analyze with Layout or a prebuilt/custom model.</li>
+      <li>Take the Markdown/JSON output → chunk it → generate embeddings.</li>
+      <li>Index chunks in <strong>Azure AI Search</strong> (vector + keyword/hybrid index).</li>
+      <li>At query time, retrieve relevant chunks and ground an LLM/agent response (Azure OpenAI / Azure AI Foundry Agent Service) in the extracted, verifiable document content — reducing hallucination versus asking the LLM to read raw scanned images itself.</li>
+    </ol>
+    <div class="tip">Document Intelligence doesn't do retrieval or embeddings itself — it only extracts/structures content. Pair it with <b>Azure AI Search</b> for indexing/retrieval and Azure OpenAI/Foundry Agents for generation — this combination is the classic AI-103 "information extraction → RAG" exam pattern.</div>
+    <div class="must-know"><b>Must know:</b> When a scenario needs document content fed into an LLM/agent or search index with high fidelity and traceability, the pipeline is <b>Document Intelligence (extract) → chunk/embed → Azure AI Search (index/retrieve) → Azure OpenAI/Agent (generate)</b>. Markdown output from the Layout model is the preferred bridge format.</div>
+  </section>
+
+  <section id="resources">
+    <h2>7. Resources, Pricing Tiers &amp; Service Limits</h2>
+    <h3>Resource &amp; pricing tiers</h3>
+    <ul>
+      <li><strong>F0 (Free tier)</strong> — limited: only first 2 pages of a PDF/TIFF processed; 4 MB max file size.</li>
+      <li><strong>S0 (Standard/paid tier)</strong> — full processing; 500 MB max file size; up to 2,000 pages per PDF/TIFF.</li>
+      <li>Created as a <strong>Document Intelligence</strong> (Cognitive Services / Foundry) resource in the Azure portal; get key + endpoint to call REST API or SDKs (C#, Python, Java, JavaScript).</li>
+      <li>Development/testing can be done visually via <strong>Document Intelligence Studio</strong> (no-code UI for trying models, labeling custom training data, and viewing full JSON output).</li>
+    </ul>
+    <h3>Key service limits (v4.0 / 2024-11-30 GA)</h3>
+    <table>
+      <tr><th>Limit</th><th>Value</th></tr>
+      <tr><td>Supported file types</td><td>PDF; Images (JPEG/JPG, PNG, BMP, TIFF, HEIF); Office (DOCX, XLSX, PPTX, HTML)</td></tr>
+      <tr><td>Max file size</td><td>500 MB (S0), 4 MB (F0)</td></tr>
+      <tr><td>Max pages (PDF/TIFF)</td><td>2,000 pages (S0); first 2 pages only (F0)</td></tr>
+      <tr><td>Image dimensions</td><td>50×50 to 10,000×10,000 pixels</td></tr>
+      <tr><td>Min text height</td><td>~12 px at 1024×768 (≈8-pt font @ 150 DPI)</td></tr>
+      <tr><td>Office file max string length</td><td>8 million characters</td></tr>
+      <tr><td>Custom template training</td><td>Max 500 pages / 50 MB</td></tr>
+      <tr><td>Custom neural training</td><td>Max 50,000 pages / 1 GB</td></tr>
+      <tr><td>Custom classifier training</td><td>Max 10,000 pages / 1–2 GB</td></tr>
+      <tr><td>Password-protected PDFs</td><td>Not supported — must remove password before submission</td></tr>
+    </table>
+    <div class="retire"><strong>Version retirement to remember:</strong> v3.0 retires March 30, 2029; v2.1 retires Sept 15, 2027. v4.0 and v3.1 have no announced end-of-support date. Always migrate forward before a retirement date.</div>
+    <div class="must-know"><b>Must know:</b> Free tier (F0) only processes the <b>first 2 pages</b> of multi-page docs and caps file size at 4 MB — a classic distractor in exam questions about "why isn't my whole document being analyzed."</div>
+  </section>
+
+  <section id="exam">
+    <h2>8. Exam Quick Reference</h2>
+    <table>
+      <tr><th>If the scenario says…</th><th>Use…</th></tr>
+      <tr><td>Just need raw printed/handwritten text, or a searchable PDF</td><td><strong>Read</strong> model (<code>prebuilt-read</code>)</td></tr>
+      <tr><td>Need tables, checkboxes, headings/structure from varied/unknown-format documents</td><td><strong>Layout</strong> model (<code>prebuilt-layout</code>)</td></tr>
+      <tr><td>Document type is invoice, receipt, ID, W-2, mortgage form, etc.</td><td>Matching <strong>prebuilt model</strong> — no training needed</td></tr>
+      <tr><td>Business-specific fields on consistent/static forms</td><td><strong>Custom template</strong> model</td></tr>
+      <tr><td>Business-specific fields on varied/semi-structured/unstructured documents</td><td><strong>Custom neural</strong> model (preferred for accuracy)</td></tr>
+      <tr><td>Mixed batch of multiple document types arriving together</td><td><strong>Custom classifier</strong> + <strong>composed model</strong></td></tr>
+      <tr><td>Need to feed extracted content into an LLM/agent or search index for RAG</td><td>Layout's <strong>Markdown output</strong> → <strong>Azure AI Search</strong> index → Azure OpenAI/Agent generation</td></tr>
+      <tr><td>Field values need to come back already typed (dates, currency, addresses)</td><td>Prebuilt models (auto-typed) or custom models (you define the type per field)</td></tr>
+    </table>
+    <div class="must-know"><b>Top trap to avoid:</b> Don't confuse Document Intelligence (deterministic schema-based extraction) with Azure AI Content Understanding's LLM-powered analyzers (for complex/multimodal unstructured content) — the exam may ask you to pick the "right AI tool" between the two.</div>
+  </section>
+
+</div>
+
+<footer>
+  Compiled from Microsoft Learn documentation (learn.microsoft.com/azure/ai-services/document-intelligence) — Azure AI Document Intelligence API v4.0 (2024-11-30 GA). Study notes generated 2026-11-14 for Microsoft Certification exam AI-103.
+</footer>
+
+</body>
+</html>

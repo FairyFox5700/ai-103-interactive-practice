@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI-103 Study Notes: Azure AI Search</title>
+<style>
+  :root{
+    --accent:#0078D4; --accent-dark:#004578; --bg:#f5f7fa; --card:#ffffff;
+    --warn-bg:#fff4e5; --warn-border:#e67e22; --tip-bg:#e8f4fd; --tip-border:#0078D4;
+  }
+  body{font-family:'Segoe UI',Calibri,Arial,sans-serif;background:var(--bg);color:#222;margin:0;padding:0;line-height:1.55;}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 24px 80px;}
+  header.hero{background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;padding:36px 24px;border-radius:0 0 16px 16px;}
+  header.hero h1{margin:0 0 8px;font-size:26px;}
+  header.hero p{margin:0;opacity:.9;font-size:14px;}
+  .badge{display:inline-block;background:rgba(255,255,255,.2);padding:4px 10px;border-radius:12px;font-size:12px;margin-top:10px;margin-right:6px;}
+  .section-nav{background:var(--card);border-radius:10px;padding:16px 22px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin:20px 0;font-size:14px;}
+  .section-nav a{color:var(--accent-dark);text-decoration:none;display:inline-block;margin:3px 10px 3px 0;}
+  .section-nav a:hover{text-decoration:underline;}
+  section{background:var(--card);border-radius:10px;padding:22px 26px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin:22px 0;}
+  section h2{color:var(--accent-dark);border-bottom:2px solid var(--accent);padding-bottom:6px;margin-top:0;font-size:21px;}
+  h3{color:var(--accent-dark);margin-top:22px;font-size:16px;}
+  .retire{background:var(--warn-bg);border-left:5px solid var(--warn-border);padding:14px 18px;border-radius:6px;margin:14px 0;font-size:14px;}
+  .tip{background:var(--tip-bg);border-left:5px solid var(--tip-border);padding:12px 16px;border-radius:6px;margin:12px 0;font-size:13.5px;}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;}
+  th,td{border:1px solid #d8dee4;padding:7px 9px;text-align:left;}
+  th{background:var(--accent);color:#fff;}
+  tr:nth-child(even){background:#f0f4f8;}
+  ul,ol{margin:8px 0;padding-left:22px;}
+  li{margin-bottom:4px;}
+  .keyword{background:#fffbdd;padding:1px 5px;border-radius:4px;font-weight:600;}
+  code{background:#eef1f4;padding:2px 5px;border-radius:4px;font-size:13px;}
+  .must-know{background:#eafaf1;border:1px solid #b7e4c7;border-radius:8px;padding:10px 16px;margin-top:14px;font-size:13.5px;}
+  .must-know b{color:#1e7e34;}
+  footer{text-align:center;color:#888;font-size:12px;margin-top:50px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>Azure AI Search — AI-103 Study Notes</h1>
+  <p>Exam AI-103: Developing AI Apps and Agents on Azure &middot; Objective: "Implement information extraction solutions" → "Build retrieval and grounding pipelines"</p>
+  <span class="badge">Vector &amp; Hybrid Search</span>
+  <span class="badge">Semantic Ranker</span>
+  <span class="badge">AI Enrichment / Skillsets</span>
+  <span class="badge">Indexers</span>
+  <span class="badge">RAG &amp; Agent Grounding</span>
+</header>
+
+<nav class="section-nav">
+  <strong>Jump to:</strong>
+  <a href="#overview">1. What is Azure AI Search</a>
+  <a href="#ingestion">2. Ingesting &amp; Indexing Content</a>
+  <a href="#schema">3. Index Schema Basics</a>
+  <a href="#vector">4. Vector Search</a>
+  <a href="#hybrid">5. Hybrid Search</a>
+  <a href="#semantic">6. Semantic Ranker</a>
+  <a href="#enrichment">7. AI Enrichment / Skillsets</a>
+  <a href="#rag">8. RAG Ingestion &amp; Grounding Pipelines</a>
+  <a href="#agents">9. Connecting to Agents (Foundry)</a>
+</nav>
+
+<section id="overview">
+  <h2>1. What Is Azure AI Search?</h2>
+  <p>Azure AI Search (formerly <em>Azure Cognitive Search</em>) is a fully managed, cloud-hosted information retrieval service that connects enterprise data to AI. It unifies full-text, vector, hybrid, and multimodal query capabilities so apps, chatbots, and agents can ground answers in your proprietary content.</p>
+  <h3>Two engines</h3>
+  <ul>
+    <li><b>Classic search</b> — index-first, single request/response retrieval. You define an index, populate it, then query it directly. Low-latency, predictable, no LLM involved in retrieval itself.</li>
+    <li><b>Agentic retrieval</b> — a multi-query pipeline where an LLM plans, decomposes, and iterates on a user's question, issuing several parallel sub-queries against one or more <em>knowledge sources</em>, then returns a structured, citation-rich response. This underpins <b>Foundry IQ</b>, the managed knowledge layer for agents in the Microsoft Foundry portal.</li>
+  </ul>
+  <h3>Core capabilities included with every search service</h3>
+  <ul>
+    <li>Full-text (keyword/BM25), vector, hybrid, and multimodal queries over indexed or remote content.</li>
+    <li>AI enrichment to chunk, vectorize, and otherwise transform raw content into searchable form.</li>
+    <li>Relevance tuning: scoring profiles, semantic ranker, filters, facets, synonyms, autocomplete.</li>
+    <li>Enterprise security (Microsoft Entra ID, Private Link, document-level RBAC) and Azure-scale monitoring.</li>
+    <li>Native integrations with Azure Blob Storage, Azure SQL, Cosmos DB, SharePoint, OneLake, Azure OpenAI, and Microsoft Foundry.</li>
+  </ul>
+  <h3>Two primary classic-search workloads</h3>
+  <table>
+    <tr><th>Workload</th><th>Description</th></tr>
+    <tr><td>Indexing</td><td>Loads content into an index. Text is tokenized into inverted indexes; vectors go into vector indexes. Azure AI Search can only index <code>JSON</code> documents — non-JSON source content (PDFs, images) must be cracked/converted first.</td></tr>
+    <tr><td>Querying</td><td>A client app sends full-text, vector, hybrid, or multimodal query requests to a populated index and receives ranked results.</td></tr>
+  </table>
+  <div class="must-know"><b>Must know:</b> Azure AI Search indexes only JSON documents internally — an <span class="keyword">indexer</span> or custom code must convert/crack source files (blobs, DB rows, images) into JSON before they can be indexed.</div>
+</section>
+
+<section id="ingestion">
+  <h2>2. Ingesting &amp; Indexing Content</h2>
+  <p>There are exactly two ways to load data into a search index:</p>
+  <table>
+    <tr><th>Method</th><th>Also called</th><th>When to use</th></tr>
+    <tr><td><b>Push API</b></td><td>Push model</td><td>You control serialization and push JSON documents directly via REST/SDK (<code>Documents - Index</code> API). Required for &lt;5 min freshness, data not in a supported data source, or full control over timing/transformation logic.</td></tr>
+    <tr><td><b>Indexers</b></td><td>Pull model</td><td>A crawler ("indexer") connects to a supported data source, extracts ("cracks") content, maps fields, and populates the index automatically — no custom upload code. Runs on-demand or on a schedule (as frequent as every 5 minutes).</td></tr>
+  </table>
+  <h3>Indexer architecture</h3>
+  <ul>
+    <li>An indexer configuration = one <b>data source</b> + one <b>index</b> (+ optional <b>skillset</b> for enrichment).</li>
+    <li>An indexer can only read from <i>one</i> data source and write to <i>one</i> index, but a data source can feed multiple indexers, and multiple indexers can write into the same index (e.g., multi-source scenarios, multi-region sync, parallel indexing of huge datasets).</li>
+    <li>Supported data sources include Azure Blob Storage, Azure Data Lake Storage Gen2, Azure SQL Database/Managed Instance, Azure Cosmos DB (multiple APIs), Azure Table Storage, Microsoft OneLake, and SharePoint Online.</li>
+    <li>A search service runs <b>one indexer job per search unit</b> (replica) — add replicas for concurrent indexer execution; indexers don't run in the background, so heavy indexing can cause query throttling.</li>
+  </ul>
+  <h3>Document cracking</h3>
+  <p>During indexing, the indexer "cracks" each source document — opening files and extracting text and images from formats such as PDF, Office docs, HTML, JSON, CSV — so content can be enriched and tokenized. Cracked images can be routed to image-processing skills (OCR, image analysis); cracked text is queued for NLP skills.</p>
+  <h3>Content types for ingestion</h3>
+  <ul>
+    <li><b>Documents</b> (PDF, Office, HTML, plain text) — cracked for text and embedded images.</li>
+    <li><b>Images</b> — processed with OCR skill (printed/handwritten text) and Image Analysis skill (captions, tags) or multimodal embeddings.</li>
+    <li><b>Audio/video</b> — not natively cracked by indexers; typically pre-processed outside Azure AI Search (e.g., Azure AI Speech for transcription, Azure Video Indexer) and the resulting transcript/metadata text is then pushed or indexed as JSON.</li>
+  </ul>
+  <div class="tip"><b>Tip:</b> Indexer execution on Standard S3 HD and Serverless tiers follows a different model with a service-level daily runtime quota — know this exists even if details aren't required.</div>
+  <div class="must-know"><b>Must know:</b> Push API = lowest latency / most control, you write the code. Indexers = no-code pull model with built-in change detection and scheduling, and they are the <u>only</u> way to drive a skillset/AI enrichment pipeline.</div>
+</section>
+
+<section id="schema">
+  <h2>3. Index Schema Basics</h2>
+  <p>An index is defined by a <b>schema</b>: a named collection of <b>fields</b>, each with a data type and a set of attributes controlling how it can be used in queries. A document in an index is conceptually like a row in a database table; the index itself is like a table.</p>
+  <h3>Field attributes</h3>
+  <table>
+    <tr><th>Attribute</th><th>Meaning</th></tr>
+    <tr><td><code>key</code></td><td>Unique document identifier (exactly one per index, must be a string).</td></tr>
+    <tr><td><code>searchable</code></td><td>Included in full-text search (tokenized/analyzed). Only string and vector-adjacent text fields can be searchable.</td></tr>
+    <tr><td><code>filterable</code></td><td>Can be used in <code>$filter</code> expressions (e.g., equality, range, geo-distance).</td></tr>
+    <tr><td><code>sortable</code></td><td>Can be used in <code>$orderby</code> clauses.</td></tr>
+    <tr><td><code>facetable</code></td><td>Can be used to generate facet navigation (counts/buckets of field values).</td></tr>
+    <tr><td><code>retrievable</code></td><td>Returned in the <code>select</code> result set. Set to <code>false</code> to hide a field used only internally (e.g., a raw vector you never display).</td></tr>
+  </table>
+  <h3>Vector fields</h3>
+  <ul>
+    <li>Declared as <code>Collection(Edm.Single)</code> (or newer compressed/narrow types) with a required <code>dimensions</code> count and a <code>vectorSearchProfile</code> referencing an algorithm + vectorizer configuration.</li>
+    <li>Vector fields are <b>not filterable</b> directly, but you can pair them with a filterable text/numeric metadata field for "filtered vector search."</li>
+    <li>Only vector fields marked <code>searchable</code> (or specified in query <code>searchFields</code>) actually participate in vector search and scoring.</li>
+  </ul>
+  <h3>Scoring profiles</h3>
+  <p>Optional, named boosting configurations attached to the index that let you weight certain fields (e.g., boost matches in <code>Title</code> over <code>Body</code>) or boost by freshness/distance/custom functions — applied to the text-relevance (BM25) portion of a query, not vectors.</p>
+  <div class="must-know"><b>Must know:</b> a vector field can never be <code>filterable</code> itself — to filter vector search results you need a separate filterable scalar field in the same document (exam loves this trap).</div>
+</section>
+
+<section id="vector">
+  <h2>4. Vector Search</h2>
+  <p>Vector search indexes and queries over <b>numeric embeddings</b> instead of plain text, enabling matches based on semantic/conceptual similarity rather than exact keyword overlap — e.g., "dog" ≈ "canine", or "dog" (English) ≈ "hund" (German), or text ≈ an image of the same concept (multimodal).</p>
+  <h3>Supported scenarios</h3>
+  <ul>
+    <li><b>Similarity search</b> — encode text with an embedding model (e.g., Azure OpenAI <code>text-embedding-ada-002</code> or newer, or open-source SBERT) and query with another embedding.</li>
+    <li><b>Hybrid search</b> — vector + keyword search in one request (see Section 5).</li>
+    <li><b>Multimodal search</b> — encode text and images into a shared embedding space (e.g., OpenAI CLIP, Azure AI Vision multimodal embeddings).</li>
+    <li><b>Multilingual search</b> — embeddings naturally match concepts across languages with no translation step.</li>
+    <li><b>Filtered vector search</b> — combine a vector query with a <code>filter</code> on a scalar field (applied pre- or post-vector search).</li>
+    <li><b>Vector database</b> use — Azure AI Search can act as a pure vector store/long-term memory/knowledge base for RAG apps.</li>
+  </ul>
+  <h3>Getting embeddings into the index</h3>
+  <table>
+    <tr><th>Approach</th><th>How it works</th></tr>
+    <tr><td>Integrated vectorization (internal)</td><td>An indexer pipeline with a skillset calls an embedding model (e.g., Azure OpenAI Embedding skill) automatically during indexing, and a matching <b>vectorizer</b> encodes the query text at query time. Requires an indexer + data source + skillset.</td></tr>
+    <tr><td>External/bring-your-own vectors</td><td>You generate embeddings yourself (any embedding model) and push pre-vectorized JSON documents directly into vector fields via the push API.</td></tr>
+  </table>
+  <h3>Algorithms (how matches are found)</h3>
+  <table>
+    <tr><th>Algorithm</th><th>Type</th><th>Characteristics</th></tr>
+    <tr><td><b>Exhaustive KNN</b></td><td>Brute-force, exact</td><td>Compares the query vector against every vector (k-Nearest Neighbors), guaranteeing the true top-k. Expensive at scale; good for small/medium datasets, high-precision needs, or building ground truth to measure ANN recall. Doesn't consume vector index size quota.</td></tr>
+    <tr><td><b>HNSW</b> (Hierarchical Navigable Small World)</td><td>Approximate Nearest Neighbor (ANN)</td><td>Builds a hierarchical graph at index time for fast, high-recall, low-latency search. Requires all vectors resident in memory (consumes vector index quota). Default/recommended for most production workloads.</td></tr>
+  </table>
+  <h3>Similarity metrics</h3>
+  <ul>
+    <li><b>Cosine</b> — measures the angle between vectors (most common for text embeddings).</li>
+    <li><b>Dot product</b> — fast, works well when vectors are normalized.</li>
+    <li><b>Euclidean</b> — straight-line distance between vectors.</li>
+  </ul>
+  <div class="tip"><b>Tip:</b> A query can set <code>"exhaustive": true</code> per vector query to force exhaustive KNN even if the field was indexed with HNSW — useful when you need maximum recall for a specific query without rebuilding the index.</div>
+  <div class="must-know"><b>Must know:</b> HNSW = fast approximate search, consumes memory/vector quota; Exhaustive KNN = exact but computationally expensive, no quota consumption. Know when the exam wants "best recall at scale" (HNSW) vs. "guaranteed exact top-k" (exhaustive KNN).</div>
+</section>
+
+<section id="hybrid">
+  <h2>5. Hybrid Search</h2>
+  <p>Hybrid search is a <b>single query request</b> that runs full-text (keyword/BM25) search and vector search <i>in parallel</i> against the same index, then merges the two ranked result sets into one unified list using <b>Reciprocal Rank Fusion (RRF)</b>.</p>
+  <h3>Why combine them?</h3>
+  <ul>
+    <li><b>Vector search strength:</b> finds conceptually similar content even with zero keyword overlap.</li>
+    <li><b>Keyword search strength:</b> precision for exact matches — product codes, jargon, dates, names — cases where embeddings can blur exact terms.</li>
+    <li>Benchmarks show hybrid retrieval <i>plus</i> semantic ranker gives the best relevance for RAG grounding data.</li>
+  </ul>
+  <h3>Request anatomy</h3>
+  <ul>
+    <li><code>search</code> — the full-text query string.</li>
+    <li><code>vectorQueries</code> — one or more vector queries, each targeting a vector field, with a <code>k</code> (nearest neighbors to retrieve) and optional <code>exhaustive</code>/<code>oversampling</code>.</li>
+    <li><code>filter</code>, <code>facets</code>, <code>select</code> — standard text-query features that still apply in hybrid mode.</li>
+    <li><code>queryType: "semantic"</code> + <code>semanticConfiguration</code> — optionally layer semantic ranker on top (recommended: set vector <code>k</code> to 50 to maximize semantic ranker's input).</li>
+  </ul>
+  <div class="tip"><b>Tip:</b> Both full-text and vector queries run against the <i>same</i> index — a hybrid-capable index simply contains both plain-text/numeric fields and vector fields side by side.</div>
+  <div class="must-know"><b>Must know:</b> Hybrid search ranking = <b>RRF</b> (Reciprocal Rank Fusion), not a weighted average of scores. RRF merges rankings from BM25 (text) and HNSW/eKNN (vector) without needing the two different score scales to be comparable.</div>
+</section>
+
+<section id="semantic">
+  <h2>6. Semantic Ranker</h2>
+  <p><b>Semantic ranker</b> is a premium, billed (with a free-tier allowance) query-time feature that reranks an initial BM25- or RRF-ranked result set using Microsoft's language-understanding (deep learning) models adapted from Bing — improving relevance for text, the text portion of vector queries, and hybrid queries.</p>
+  <h3>What it adds to the pipeline</h3>
+  <table>
+    <tr><th>Capability</th><th>Description</th></tr>
+    <tr><td>L2 (secondary) ranking</td><td>Rescoring the top results (max 50) using semantic/contextual meaning, not just term frequency.</td></tr>
+    <tr><td>Semantic captions &amp; highlights</td><td>Extracts verbatim summarizing sentences/phrases per result and highlights key passages.</td></tr>
+    <tr><td>Semantic answers</td><td>Optional direct "answer" extracted from a result when the query looks like a question and a document contains answer-like text.</td></tr>
+    <tr><td>Query rewrite (preview)</td><td>Generates up to 10 semantically similar query variants (typo correction, rephrasing/synonyms) that are run and merged before reranking.</td></tr>
+  </table>
+  <h3>How it works</h3>
+  <ol>
+    <li>Start from a BM25-ranked (text) or RRF-ranked (hybrid/vector) result.</li>
+    <li>Summarize/truncate the top 50 results for the ranking model (resource and latency constraints mean only the top 50 progress, even if more results exist).</li>
+    <li>Score with the semantic model and return rescored results + optional captions/answers.</li>
+  </ol>
+  <div class="tip"><b>Tip:</b> Semantic ranker is also built into agentic retrieval by default — you don't configure it separately in that pipeline.</div>
+  <div class="must-know"><b>Must know:</b> Semantic ranker only reranks the <u>top 50</u> results from the prior BM25/RRF pass — it is a reranking layer, not a replacement retrieval engine, and it requires text content (it can't rerank on raw vectors alone).</div>
+</section>
+
+<section id="enrichment">
+  <h2>7. AI Enrichment / Skillsets (Cognitive Skills)</h2>
+  <p><b>AI enrichment</b> integrates Azure AI (Foundry Tools/Cognitive Services) into the indexer pipeline to process content that isn't natively searchable — turning raw text/images into structured, searchable (and vectorized) fields. Raw input to enrichment must be text or images (you cannot enrich vectors).</p>
+  <h3>Pipeline components</h3>
+  <ul>
+    <li><b>Skillset</b> — a named, ordered collection of <i>skills</i> attached to an indexer, each performing one atomic transformation.</li>
+    <li><b>Built-in skills</b> — call Foundry Tools/Cognitive Services APIs under the hood:
+      <ul>
+        <li>OCR — extract printed/handwritten text from images/scanned documents.</li>
+        <li>Image Analysis — generate captions/tags/descriptions for images as searchable text.</li>
+        <li>Entity Recognition — extract people, places, organizations from text.</li>
+        <li>Key Phrase Extraction — identify important terms.</li>
+        <li>Language detection &amp; Translation — for multilingual content.</li>
+        <li>Text Split skill — chunk long text into smaller passages (critical for RAG/embedding size limits).</li>
+        <li>Azure OpenAI Embedding skill — generate text embeddings for integrated vectorization.</li>
+        <li>Azure AI Vision multimodal embedding skill — generate shared text/image embeddings.</li>
+      </ul>
+    </li>
+    <li><b>Custom skills</b> — call your own external code (typically an <b>Azure Function</b> or any HTTP endpoint implementing the custom skill interface) for processing not covered by built-in skills.</li>
+  </ul>
+  <h3>Enrichment pipeline flow</h3>
+  <ol>
+    <li><b>Import</b> — indexer connects to a data source (commonly Azure Blob Storage) and pulls raw content.</li>
+    <li><b>Enrich &amp; Index</b> — the indexer <i>cracks</i> documents (extracts text/images), skills process content into an <b>enriched document</b> (an internal "enrichment tree" collecting each transformation), then <b>field mappings</b> (source → index) and <b>output field mappings</b> (enriched content → index) route data into the index. Lexical analysis/tokenization happens during this indexing step.</li>
+    <li><b>Explore</b> — output is always a search index; optionally also a <b>knowledge store</b> (tables/blobs in Azure Storage for downstream analytics/BI, defined via <i>projections</i>) — the same enriched content can flow to both simultaneously.</li>
+  </ol>
+  <div class="tip"><b>Tip:</b> Enable the <b>enrichment cache</b> (preview) to persist skill outputs so that re-running a skillset after a schema tweak doesn't require (and re-bill) every skill from scratch — only changed skills rerun.</div>
+  <div class="must-know"><b>Must know:</b> Custom skills plug into a skillset as an external HTTP call — the canonical AI-103 example is wrapping custom logic in an <b>Azure Function</b> that conforms to the custom skill request/response JSON contract.</div>
+</section>
+
+<section id="rag">
+  <h2>8. Configuring a RAG Ingestion Flow</h2>
+  <p>Retrieval-Augmented Generation (RAG) grounds an LLM's response in your proprietary content instead of relying solely on its training data. Azure AI Search offers two complementary approaches:</p>
+  <table>
+    <tr><th>Approach</th><th>Description</th></tr>
+    <tr><td><b>Classic RAG pattern</b></td><td>You build the pipeline: hybrid search + semantic ranking retrieves the best chunks, your app (or Azure OpenAI "on your data" / Foundry) assembles a prompt with those chunks and calls the LLM. Proven, GA, millisecond query times, full control.</td></tr>
+    <tr><td><b>Agentic retrieval</b></td><td>A complete, LLM-orchestrated RAG pipeline: query planning (decomposing a conversational question into targeted sub-queries), parallel multi-source retrieval across <i>knowledge sources</i> (indexed or remote, e.g. SharePoint/Bing), built-in semantic ranking, and a structured response with citations — purpose-built for agent consumption via <b>knowledge bases</b>.</td></tr>
+  </table>
+  <h3>End-to-end ingestion flow (classic RAG, including OCR)</h3>
+  <ol>
+    <li><b>Data source</b> — point an indexer at Blob Storage/SharePoint/OneLake/etc. holding source documents (PDFs, scanned images, Office files).</li>
+    <li><b>Document cracking</b> — indexer extracts text and embedded images from each file.</li>
+    <li><b>OCR skill</b> — run on image content (scanned pages, photos of documents) to extract text that isn't otherwise machine-readable.</li>
+    <li><b>Text Split skill (chunking)</b> — break long text into overlapping chunks sized to fit embedding-model and LLM context limits (common strategies: fixed token/character count with overlap, or page/sentence-aware splitting). Chunking quality directly drives retrieval relevance and RAG answer quality.</li>
+    <li><b>Embedding skill</b> — call an embedding model (Azure OpenAI/Azure AI Foundry embeddings, or Azure AI Vision for images) over each chunk to generate vectors — this is <b>integrated vectorization</b>.</li>
+    <li><b>Index</b> — enriched chunks (text + vector + metadata like source file, page number) are written to a search index with hybrid-ready fields.</li>
+    <li><b>Query &amp; ground</b> — at query time, run a hybrid (+ semantic ranker) query to retrieve the top relevant chunks, then pass them as grounding context into the LLM prompt (Azure OpenAI chat completion or a Foundry agent).</li>
+  </ol>
+  <h3>Challenges RAG must solve, and how Azure AI Search addresses them</h3>
+  <table>
+    <tr><th>Challenge</th><th>Classic RAG mitigation</th><th>Agentic retrieval mitigation</th></tr>
+    <tr><td>Query/intent understanding</td><td>Hybrid search + semantic ranking match concepts, not just keywords.</td><td>LLM decomposes vague/conversational queries into focused sub-queries using conversation history.</td></tr>
+    <tr><td>Multi-source data</td><td>Indexers pull from 10+ Azure data sources into one index.</td><td>Knowledge bases unify multiple knowledge sources; can query SharePoint/Bing remotely without pre-indexing.</td></tr>
+    <tr><td>Token constraints</td><td>Semantic ranking + top-k/top-n limits + scoring profiles + <code>select</code> trims payload.</td><td>Returns only most-relevant chunks with citation tracking; optional answer synthesis.</td></tr>
+    <tr><td>Response time</td><td>Millisecond single-request latency.</td><td>Parallel sub-query execution; adjustable reasoning effort (minimal/low/medium).</td></tr>
+    <tr><td>Security/governance</td><td>Document-level access control, Entra ID, RBAC.</td><td>Same, plus permission-aware knowledge bases (Foundry IQ).</td></tr>
+  </table>
+  <div class="tip"><b>Tip:</b> Chunking strategy and chunk size are an exam-relevant design decision — too large and you waste LLM tokens/dilute relevance; too small and you lose context needed for a coherent answer. The Text Split skill supports configurable page length and overlap.</div>
+  <div class="must-know"><b>Must know:</b> The canonical RAG ingestion chain for scanned/image-based documents is: <b>indexer → document cracking → OCR skill → Text Split (chunking) skill → embedding skill (integrated vectorization) → index</b>. Expect a scenario question asking you to order or pick the missing skill in this chain.</div>
+</section>
+
+<section id="agents">
+  <h2>9. Connecting Retrieval Pipelines to Agents (Grounding/Tool Source)</h2>
+  <p>Azure AI Search underpins <b>Foundry IQ</b>, the managed knowledge layer that turns enterprise content into reusable, permission-aware knowledge for agents built in the Microsoft Foundry portal (and via Foundry Agent Service).</p>
+  <h3>Key building blocks</h3>
+  <ul>
+    <li><b>Knowledge source</b> — a pointer to retrievable content. Can be an <i>indexed knowledge source</i> (a search index containing vector/text fields plus a vectorizer) or a <i>remote</i> source (SharePoint, Bing) queried directly without pre-indexing.</li>
+    <li><b>Knowledge base</b> — one or more knowledge sources grouped together with retrieval instructions that guide the LLM on which sources to use and how.</li>
+    <li><b>Connecting to Foundry Agent Service</b> — you parent a knowledge source to a knowledge base, then connect that knowledge base to the agent so it can call retrieval as a <i>tool</i> during its reasoning loop, receiving structured, cited results it can use for grounded responses.</li>
+  </ul>
+  <h3>Why this matters for app/agent builders</h3>
+  <ul>
+    <li>Agents built in Microsoft Foundry (or via the Azure AI Foundry SDK) can treat Azure AI Search as a first-class <b>retrieval tool</b>, no custom query-orchestration code required — the agentic retrieval engine handles query planning and parallel execution.</li>
+    <li>For simpler scenarios (or where GA features are required instead of preview), you wire classic hybrid + semantic queries yourself into your agent's tool-calling logic or RAG prompt assembly (e.g., Azure OpenAI "on your data," LangChain/Semantic Kernel vector store integrations, or a custom tool/function in a Foundry agent).</li>
+    <li>Either way, the index is the grounding "source of truth" — citations in the agent's final answer trace back to specific indexed/retrieved documents and chunks.</li>
+  </ul>
+  <div class="must-know"><b>Must know:</b> The Foundry integration chain is <b>index (with vectorizer) → knowledge source → knowledge base → Foundry Agent Service</b>. The exam may ask which object you "parent" to which — knowledge sources are parented to knowledge bases, and knowledge bases connect to the agent.</div>
+</section>
+
+<footer>
+  Compiled from Microsoft Learn documentation (learn.microsoft.com/azure/search) for AI-103 exam preparation. Generated 2026-11-14.
+</footer>
+
+</div>
+</body>
+</html>

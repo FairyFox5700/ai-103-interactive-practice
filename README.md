@@ -15,6 +15,16 @@ A self-contained browser-based study trainer for the Microsoft AI-103 exam.
 - Keyboard navigation
 - No build step or external runtime dependencies
 
+## Study notes
+
+Per-service exam notes for all 10 Azure/Foundry services covered by AI-103 live in
+[`study-notes/`](study-notes/index.html), compiled from official Microsoft Learn
+documentation: Microsoft Foundry, Azure OpenAI, Azure AI Vision, Azure AI Video
+Indexer, Azure Content Understanding, Azure AI Language, Azure AI Speech,
+Azure AI Search, Azure AI Document Intelligence, and Content Safety & Translator.
+
+Open [`study-notes/index.html`](study-notes/index.html) to browse them.
+
 ## Run locally
 
 Open `index.html` directly in a modern browser.
